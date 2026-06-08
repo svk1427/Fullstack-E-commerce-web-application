@@ -6,12 +6,6 @@ on:
          - main
       paths:
          - 'helm-charts/ingress-alb/**'
-         - '.github/workflows/ci-cd-ingress.yml'
-      paths-ignore:
-         - 'terraform/**'
-         - 'bootstrap/**'
-         - '.github/workflows/ci-cd-tf-*.yml'
-         - '**.md'
 
 jobs:
    build-and-deploy:

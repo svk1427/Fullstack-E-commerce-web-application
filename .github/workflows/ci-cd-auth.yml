@@ -7,12 +7,6 @@ on:
       paths:
          - 'microservice-backend/auth-service/**'
          - 'helm-charts/auth-service/**'
-         - '.github/workflows/ci-cd-auth.yml'
-      paths-ignore:
-         - 'terraform/**'
-         - 'bootstrap/**'
-         - '.github/workflows/ci-cd-tf-*.yml'
-         - '**.md'
 
 jobs:
    build-and-deploy:

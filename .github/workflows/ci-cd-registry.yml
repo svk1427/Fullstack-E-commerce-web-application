@@ -7,12 +7,6 @@ on:
       paths:
          - 'microservice-backend/service-registry/**'
          - 'helm-charts/service-registry/**'
-         - '.github/workflows/ci-cd-registry.yml'
-      paths-ignore:
-         - 'terraform/**'
-         - 'bootstrap/**'
-         - '.github/workflows/ci-cd-tf-*.yml'
-         - '**.md'
 
 jobs:
    build-and-deploy:

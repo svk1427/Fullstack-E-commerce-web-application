@@ -7,12 +7,6 @@ on:
       paths:
          - 'frontend/**'
          - 'helm-charts/web-app/**'
-         - '.github/workflows/ci-cd-web.yml'
-      paths-ignore:
-         - 'terraform/**'
-         - 'bootstrap/**'
-         - '.github/workflows/ci-cd-tf-*.yml'
-         - '**.md'
 
 jobs:
    build-and-deploy:
