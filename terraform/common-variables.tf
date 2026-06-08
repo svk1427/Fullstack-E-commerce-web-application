@@ -7,11 +7,11 @@ variable "vpc_cidr" {
 }
 
 variable "github_actions_user_name" {
-  default = "github-actions-eks-user"
+  default = "vamsi"
 }
 
 variable "local_cli_user_name" {
-  default = "dhar-cli"
+  default = "vamsi"
 }
 
 variable "AmazonEKSClusterAdminPolicyArn" {

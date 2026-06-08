@@ -40,29 +40,29 @@ resource "kubernetes_service_account" "cluster-autoscaler" {
   }
 }
 
-resource "helm_release" "cluster-autoscaler" {
-  name       = "cluster-autoscaler"
-  repository = "https://kubernetes.github.io/autoscaler"
-  chart      = "cluster-autoscaler"
-  namespace  = "kube-system"
-  version    = "9.50.1"
-
-  set = [
-    {
-      name  = "autoDiscovery.clusterName"
-      value = aws_eks_cluster.purely_cluster.name
-    },
-    {
-      name  = "rbac.serviceAccount.create"
-      value = "false"
-    },
-    {
-      name  = "rbac.serviceAccount.name"
-      value = "cluster-autoscaler"
-    },
-    {
-      name  = "awsRegion"
-      value = var.region
-    }
-  ]
-}
+#resource "helm_release" "cluster-autoscaler" {
+#  name       = "cluster-autoscaler"
+#  repository = "https://kubernetes.github.io/autoscaler"
+#  chart      = "cluster-autoscaler"
+#  namespace  = "kube-system"
+#  version    = "9.50.1"
+#
+#  set = [
+#    {
+#      name  = "autoDiscovery.clusterName"
+#      value = aws_eks_cluster.purely_cluster.name
+#    },
+#    {
+#      name  = "rbac.serviceAccount.create"
+#      value = "false"
+#    },
+#    {
+#      name  = "rbac.serviceAccount.name"
+#      value = "cluster-autoscaler"
+#    },
+#    {
+#      name  = "awsRegion"
+#      value = var.region
+#    }
+#  ]
+#}

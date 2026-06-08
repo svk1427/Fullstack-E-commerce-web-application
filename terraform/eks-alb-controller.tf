@@ -45,33 +45,34 @@ resource "kubernetes_service_account" "alb-controller" {
 # An IAM role is a set of permissions that can be assumed by a trusted entity.
 #   Trust Policy - The role will be assumed by the Kubernetes service account running the ALB Controller.
 #   Permission Policy - It defines what the ALB Controller can do in your AWS account. 
-resource "helm_release" "aws-load-balancer-controller" {
-  name       = "aws-load-balancer-controller"
-  repository = "https://aws.github.io/eks-charts"
-  chart      = "aws-load-balancer-controller"
-  namespace  = "kube-system"
-  version    = "1.13.0"
 
-  set = [
-    {
-      name  = "clusterName"
-      value = aws_eks_cluster.purely_cluster.name
-    },
-    {
-      name  = "serviceAccount.create"
-      value = "false"
-    },
-    {
-      name  = "serviceAccount.name"
-      value = "alb-controller"
-    },
-    {
-      name  = "region"
-      value = var.region
-    },
-    {
-      name  = "vpcId"
-      value = aws_vpc.purely_vpc.id
-    }
-  ]
-}
+#resource "helm_release" "aws-load-balancer-controller" {
+#  name       = "aws-load-balancer-controller"
+#  repository = "https://aws.github.io/eks-charts"
+#  chart      = "aws-load-balancer-controller"
+#  namespace  = "kube-system"
+#  version    = "1.13.0"
+#
+#  set = [
+#    {
+#      name  = "clusterName"
+#      value = aws_eks_cluster.purely_cluster.name
+#    },
+#    {
+#      name  = "serviceAccount.create"
+#      value = "false"
+#    },
+#    {
+#      name  = "serviceAccount.name"
+#      value = "alb-controller"
+#    },
+#    {
+#      name  = "region"
+#      value = var.region
+#    },
+#    {
+#      name  = "vpcId"
+#      value = aws_vpc.purely_vpc.id
+#    }
+#  ]
+#}

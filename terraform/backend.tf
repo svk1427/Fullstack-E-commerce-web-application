@@ -1,9 +1,9 @@
 terraform {
   backend "s3" {
-    bucket         = "" # Set via -backend-config in CI/CD
-    key            = "" # Set via -backend-config in CI/CD
-    region         = "" # Set via -backend-config in CI/CD
-    dynamodb_table = "" # Set via -backend-config in CI/CD
+    bucket         = "purely-terraform-state" # Set via -backend-config in CI/CD
+    key            = "demo" # Set via -backend-config in CI/CD
+    region         = "us-east-1" # Set via -backend-config in CI/CD
+    dynamodb_table = "purely-terraform-locks" # Set via -backend-config in CI/CD
     encrypt        = true
   }
 }

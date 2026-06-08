@@ -17,10 +17,7 @@ variable "environment" {
 variable "aws_account_id" {
   description = "AWS Account ID (12-digit number)"
   type        = string
-  validation {
-    condition     = can(regex("^[0-9]{12}$", var.aws_account_id))
-    error_message = "AWS Account ID must be a 12-digit number."
-  }
+  default     = "846898691042"
 }
 
 variable "tf_state_bucket" {
