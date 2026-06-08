@@ -1,6 +1,6 @@
 name: CI/CD Pipeline for Auth Service
 
-on: 
+on:
    push:
       branches:
          - main
@@ -8,13 +8,18 @@ on:
          - 'microservice-backend/auth-service/**'
          - 'helm-charts/auth-service/**'
          - '.github/workflows/ci-cd-auth.yml'
+      paths-ignore:
+         - 'terraform/**'
+         - 'bootstrap/**'
+         - '.github/workflows/ci-cd-tf-*.yml'
+         - '**.md'
 
 jobs:
    build-and-deploy:
       runs-on: ubuntu-latest
 
       steps:
-         - name: Checkout code  
+         - name: Checkout code
            uses: actions/checkout@v4
 
          - name: Set up Java
@@ -33,7 +38,7 @@ jobs:
          - name: Login to Amazon ECR
            id: login-ecr
            uses: aws-actions/amazon-ecr-login@v2
-      
+
          - name: Build, tag, and push image to Amazon ECR
            id: build-image
            env:

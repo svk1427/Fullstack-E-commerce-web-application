@@ -1,11 +1,17 @@
-name: CI/CD Pipeline for Ingress ALB 
-on: 
+name: CI/CD Pipeline for Ingress ALB
+
+on:
    push:
       branches:
          - main
       paths:
          - 'helm-charts/ingress-alb/**'
          - '.github/workflows/ci-cd-ingress.yml'
+      paths-ignore:
+         - 'terraform/**'
+         - 'bootstrap/**'
+         - '.github/workflows/ci-cd-tf-*.yml'
+         - '**.md'
 
 jobs:
    build-and-deploy:

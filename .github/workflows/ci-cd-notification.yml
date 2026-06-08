@@ -1,6 +1,6 @@
 name: CI/CD Pipeline for Notification Service
 
-on: 
+on:
    push:
       branches:
          - main
@@ -8,6 +8,11 @@ on:
          - 'microservice-backend/notification-service/**'
          - 'helm-charts/notification-service/**'
          - '.github/workflows/ci-cd-notification.yml'
+      paths-ignore:
+         - 'terraform/**'
+         - 'bootstrap/**'
+         - '.github/workflows/ci-cd-tf-*.yml'
+         - '**.md'
 
 jobs:
    build-and-deploy:

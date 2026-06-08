@@ -1,6 +1,6 @@
 name: CI/CD Pipeline for Api Gateway
 
-on: 
+on:
    push:
       branches:
          - main
@@ -8,6 +8,11 @@ on:
          - 'microservice-backend/api-gateway/**'
          - 'helm-charts/api-gateway/**'
          - '.github/workflows/ci-cd-gateway.yml'
+      paths-ignore:
+         - 'terraform/**'
+         - 'bootstrap/**'
+         - '.github/workflows/ci-cd-tf-*.yml'
+         - '**.md'
 
 jobs:
    build-and-deploy:

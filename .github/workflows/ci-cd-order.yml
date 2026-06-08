@@ -1,6 +1,6 @@
 name: CI/CD Pipeline for Order Service
 
-on: 
+on:
    push:
       branches:
          - main
@@ -8,6 +8,11 @@ on:
          - 'microservice-backend/order-service/**'
          - 'helm-charts/order-service/**'
          - '.github/workflows/ci-cd-order.yml'
+      paths-ignore:
+         - 'terraform/**'
+         - 'bootstrap/**'
+         - '.github/workflows/ci-cd-tf-*.yml'
+         - '**.md'
 
 jobs:
    build-and-deploy:

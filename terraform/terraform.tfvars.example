@@ -1,0 +1,19 @@
+# Terraform configuration - CUSTOMIZE FOR YOUR ENVIRONMENT
+# Do not commit to git - values will differ per environment
+
+project_name   = "purely"
+environment    = "production"
+aws_region     = "us-east-1"
+aws_account_id = "YOUR_ACCOUNT_ID"  # Replace with your 12-digit AWS account ID
+
+# Backend resource names (created by bootstrap)
+tf_state_bucket           = "purely-terraform-state"
+tf_lock_table             = "purely-terraform-locks"
+github_actions_role_name  = "github-actions-terraform-role"
+
+# Common tags applied to all resources
+common_tags = {
+  Project     = "purely"
+  Environment = "production"
+  ManagedBy   = "terraform"
+}

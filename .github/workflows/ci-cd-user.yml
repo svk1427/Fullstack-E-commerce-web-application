@@ -1,6 +1,6 @@
 name: CI/CD Pipeline for User Service
 
-on: 
+on:
    push:
       branches:
          - main
@@ -8,6 +8,11 @@ on:
          - 'microservice-backend/user-service/**'
          - 'helm-charts/user-service/**'
          - '.github/workflows/ci-cd-user.yml'
+      paths-ignore:
+         - 'terraform/**'
+         - 'bootstrap/**'
+         - '.github/workflows/ci-cd-tf-*.yml'
+         - '**.md'
 
 jobs:
    build-and-deploy:

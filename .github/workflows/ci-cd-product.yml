@@ -1,6 +1,6 @@
 name: CI/CD Pipeline for Product Service
 
-on: 
+on:
    push:
       branches:
          - main
@@ -8,6 +8,11 @@ on:
          - 'microservice-backend/product-service/**'
          - 'helm-charts/product-service/**'
          - '.github/workflows/ci-cd-product.yml'
+      paths-ignore:
+         - 'terraform/**'
+         - 'bootstrap/**'
+         - '.github/workflows/ci-cd-tf-*.yml'
+         - '**.md'
 
 jobs:
    build-and-deploy:

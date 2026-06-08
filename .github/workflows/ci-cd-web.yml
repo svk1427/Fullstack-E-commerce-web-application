@@ -1,6 +1,6 @@
 name: CI/CD Pipeline for Web Application
 
-on: 
+on:
    push:
       branches:
          - main
@@ -8,6 +8,11 @@ on:
          - 'frontend/**'
          - 'helm-charts/web-app/**'
          - '.github/workflows/ci-cd-web.yml'
+      paths-ignore:
+         - 'terraform/**'
+         - 'bootstrap/**'
+         - '.github/workflows/ci-cd-tf-*.yml'
+         - '**.md'
 
 jobs:
    build-and-deploy:
