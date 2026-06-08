@@ -1,8 +1,8 @@
 resource "aws_eks_node_group" "purely_node_group" {
-  cluster_name = aws_eks_cluster.purely_cluster.name
+  cluster_name    = aws_eks_cluster.purely_cluster.name
   node_group_name = "purely_node_group"
-  node_role_arn = aws_iam_role.purely_node_group_role.arn
-  
+  node_role_arn   = aws_iam_role.purely_node_group_role.arn
+
   subnet_ids = [
     aws_subnet.purely_private_subnet_1a.id, aws_subnet.purely_private_subnet_1b.id,
     aws_subnet.purely_public_subnet_1a.id, aws_subnet.purely_public_subnet_1b.id

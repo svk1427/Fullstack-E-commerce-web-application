@@ -1,20 +1,20 @@
 data "aws_iam_user" "github_actions_user" {
-    user_name = var.github_actions_user_name
+  user_name = var.github_actions_user_name
 }
 
 data "aws_iam_user" "local_cli_user" {
-    user_name = var.local_cli_user_name
+  user_name = var.local_cli_user_name
 }
 
 data "aws_caller_identity" "current" {
 }
 
 data "aws_eks_cluster" "purely_cluster" {
-    name = aws_eks_cluster.purely_cluster.name
+  name = aws_eks_cluster.purely_cluster.name
 }
 
 data "aws_eks_cluster_auth" "purely_cluster" {
-    name = aws_eks_cluster.purely_cluster.name
+  name = aws_eks_cluster.purely_cluster.name
 }
 
 # eksctl utils associate-iam-oidc-provider --region=us-east-1 --cluster=purely-cluster --approve

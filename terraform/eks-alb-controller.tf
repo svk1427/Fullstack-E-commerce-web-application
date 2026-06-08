@@ -5,7 +5,7 @@ resource "aws_iam_policy" "AWSLoadBalancerControllerIAMPolicy" {
 }
 
 resource "aws_iam_role" "AWSLoadBalancerControllerIAMRole" {
-  name        = "AWSLoadBalancerControllerIAMRole"
+  name = "AWSLoadBalancerControllerIAMRole"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -25,17 +25,17 @@ resource "aws_iam_role" "AWSLoadBalancerControllerIAMRole" {
   })
 }
 
-resource "aws_iam_role_policy_attachment" "AWSLoadBalancerControllerAttachment" { 
-  role        = aws_iam_role.AWSLoadBalancerControllerIAMRole.name
+resource "aws_iam_role_policy_attachment" "AWSLoadBalancerControllerAttachment" {
+  role       = aws_iam_role.AWSLoadBalancerControllerIAMRole.name
   policy_arn = aws_iam_policy.AWSLoadBalancerControllerIAMPolicy.arn
 }
 
 resource "kubernetes_service_account" "alb-controller" {
   metadata {
-    name = "alb-controller"
+    name      = "alb-controller"
     namespace = "kube-system"
     annotations = {
-        "eks.amazonaws.com/role-arn" = aws_iam_role.AWSLoadBalancerControllerIAMRole.arn
+      "eks.amazonaws.com/role-arn" = aws_iam_role.AWSLoadBalancerControllerIAMRole.arn
     }
   }
 }
@@ -49,8 +49,8 @@ resource "helm_release" "aws-load-balancer-controller" {
   name       = "aws-load-balancer-controller"
   repository = "https://aws.github.io/eks-charts"
   chart      = "aws-load-balancer-controller"
-  namespace = "kube-system"
-  version = "1.13.0"
+  namespace  = "kube-system"
+  version    = "1.13.0"
 
   set = [
     {
