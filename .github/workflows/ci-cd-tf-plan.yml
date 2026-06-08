@@ -32,7 +32,7 @@ jobs:
     name: Plan Terraform Changes
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    
+    environment: dev
     defaults:
       run:
         working-directory: terraform
