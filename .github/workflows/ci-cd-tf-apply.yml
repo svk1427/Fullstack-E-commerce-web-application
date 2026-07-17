@@ -78,9 +78,7 @@ jobs:
     name: Terraform Apply (Requires Approval)
     runs-on: ubuntu-latest
     needs: terraform-plan-job
-    environment:
-      name: production
-      approval: required
+    environment: production
     timeout-minutes: 30
     defaults:
       run:
