@@ -9,6 +9,11 @@ on:
       - 'microservice-backend/api-gateway/**'
       - 'helm-charts/api-gateway/**'
       - '.github/workflows/ci-cd-gateway.yml'
+
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
   push:
     branches:
       - main
@@ -16,7 +21,10 @@ on:
       - 'microservice-backend/api-gateway/**'
       - 'helm-charts/api-gateway/**'
       - '.github/workflows/ci-cd-gateway.yml'
-
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
 jobs:
    build-and-deploy:
       runs-on: ubuntu-latest

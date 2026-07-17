@@ -7,6 +7,10 @@ on:
       - main
     paths:
       - 'microservice-backend/service-registry/**'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
       - 'helm-charts/service-registry/**'
       - '.github/workflows/ci-cd-registry.yml'
   push:
@@ -16,7 +20,10 @@ on:
       - 'microservice-backend/service-registry/**'
       - 'helm-charts/service-registry/**'
       - '.github/workflows/ci-cd-registry.yml'
-
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
 jobs:
    build-and-deploy:
       runs-on: ubuntu-latest

@@ -9,6 +9,10 @@ on:
       - 'microservice-backend/notification-service/**'
       - 'helm-charts/notification-service/**'
       - '.github/workflows/ci-cd-notification.yml'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
   push:
     branches:
       - main
@@ -16,6 +20,10 @@ on:
       - 'microservice-backend/notification-service/**'
       - 'helm-charts/notification-service/**'
       - '.github/workflows/ci-cd-notification.yml'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
 
 jobs:
    build-and-deploy:

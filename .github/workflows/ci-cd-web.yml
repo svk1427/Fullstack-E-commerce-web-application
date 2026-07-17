@@ -7,6 +7,10 @@ on:
       - main
     paths:
       - 'frontend/**'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
       - 'helm-charts/web-app/**'
       - '.github/workflows/ci-cd-web.yml'
   push:
@@ -16,6 +20,10 @@ on:
       - 'frontend/**'
       - 'helm-charts/web-app/**'
       - '.github/workflows/ci-cd-web.yml'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
 
 jobs:
    build-and-deploy:

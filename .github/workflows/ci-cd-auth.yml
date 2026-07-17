@@ -9,6 +9,11 @@ on:
       - 'microservice-backend/auth-service/**'
       - 'helm-charts/auth-service/**'
       - '.github/workflows/ci-cd-auth.yml'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+
   push:
     branches:
       - main
@@ -16,6 +21,10 @@ on:
       - 'microservice-backend/auth-service/**'
       - 'helm-charts/auth-service/**'
       - '.github/workflows/ci-cd-auth.yml'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
 
 jobs:
    build-and-deploy:

@@ -9,6 +9,10 @@ on:
       - 'microservice-backend/order-service/**'
       - 'helm-charts/order-service/**'
       - '.github/workflows/ci-cd-order.yml'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
   push:
     branches:
       - main
@@ -16,6 +20,10 @@ on:
       - 'microservice-backend/order-service/**'
       - 'helm-charts/order-service/**'
       - '.github/workflows/ci-cd-order.yml'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
 
 jobs:
    build-and-deploy:
