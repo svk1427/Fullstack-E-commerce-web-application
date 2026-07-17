@@ -6,6 +6,10 @@ on:
       - main
     paths:
       - 'frontend/**'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
       - 'helm-charts/web-app/**'
       - '.github/workflows/ci-cd-web.yml'
     paths-ignore:
@@ -23,6 +27,10 @@ on:
       - '**.md'
       - 'docs/**'
       - 'LICENSE'
+<<<<<<< HEAD
+=======
+
+>>>>>>> ef938be7ea7dff628a8ec16fb9676b294024b079
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest

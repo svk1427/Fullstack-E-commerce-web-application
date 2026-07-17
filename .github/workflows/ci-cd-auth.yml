@@ -12,6 +12,10 @@ on:
       - '**.md'
       - 'docs/**'
       - 'LICENSE'
+<<<<<<< HEAD
+=======
+
+>>>>>>> ef938be7ea7dff628a8ec16fb9676b294024b079
   push:
     branches:
       - main
@@ -23,6 +27,10 @@ on:
       - '**.md'
       - 'docs/**'
       - 'LICENSE'
+<<<<<<< HEAD
+=======
+
+>>>>>>> ef938be7ea7dff628a8ec16fb9676b294024b079
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest

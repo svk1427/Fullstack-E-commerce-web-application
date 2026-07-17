@@ -6,6 +6,10 @@ on:
       - main
     paths:
       - 'microservice-backend/user-service/**'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
       - 'helm-charts/user-service/**'
       - '.github/workflows/ci-cd-user.yml'
     paths-ignore:

@@ -19,10 +19,18 @@ on:
       - 'microservice-backend/category-service/**'
       - 'helm-charts/category-service/**'
       - '.github/workflows/ci-cd-category.yml'
+<<<<<<< HEAD
     paths-ignore:
       - '**.md'
       - 'docs/**'
       - 'LICENSE'
+=======
+   paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+
+>>>>>>> ef938be7ea7dff628a8ec16fb9676b294024b079
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
