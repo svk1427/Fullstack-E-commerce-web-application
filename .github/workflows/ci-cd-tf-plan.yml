@@ -5,22 +5,12 @@ on:
     paths:
       - 'terraform/**'
       - 'bootstrap/**'
-      - '.github/workflows/ci-cd-tf-plan.yml'
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - 'LICENSE'
   push:
     branches:
       - main
     paths:
       - 'terraform/**'
       - 'bootstrap/**'
-      - '.github/workflows/ci-cd-tf-plan.yml'
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - 'LICENSE'
 permissions:
   id-token: write
   contents: read

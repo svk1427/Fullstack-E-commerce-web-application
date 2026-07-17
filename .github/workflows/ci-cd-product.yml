@@ -6,27 +6,13 @@ on:
       - main
     paths:
       - 'microservice-backend/product-service/**'
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - 'LICENSE'
       - 'helm-charts/product-service/**'
-      - '.github/workflows/ci-cd-product.yml'
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - 'LICENSE'
   push:
     branches:
       - main
     paths:
       - 'microservice-backend/product-service/**'
       - 'helm-charts/product-service/**'
-      - '.github/workflows/ci-cd-product.yml'
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - 'LICENSE'
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest

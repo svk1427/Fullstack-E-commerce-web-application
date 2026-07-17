@@ -6,11 +6,6 @@ on:
     paths:
       - 'terraform/**'
       - 'bootstrap/**'
-      - '.github/workflows/ci-cd-tf-apply.yml'
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - 'LICENSE'
 permissions:
   id-token: write
   contents: read
