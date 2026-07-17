@@ -13,7 +13,7 @@
   <img alt="Static Badge" src="https://img.shields.io/badge/GITHUB%20ACTIONS-white?style=for-the-badge">
 </p>
 
-- Purely is a cloud-first microservices web application showcasing Kubernetes. The application is a web-based e-commerce app where users can browse items, add them to the cart, and purchase them.
+- Purely is a cloud-first microservices web application showcasing Kubernetes. The application is a web-based e-commerce app where users can browse items, add them to the cart, and purchase them..
 - The architecture leverages **Spring Boot microservices**, **Spring Cloud Gateway**, and **Eureka Service Registry**, with a **React.js frontend** and **MongoDB databases**. 
 - The solution is containerized and deployed to **AWS Elastic Kubernetes Service (EKS)** using **Helm** and automated via **GitHub Actions CI/CD** pipelines.
 
@@ -485,5 +485,6 @@ Copy the Ingress DNS address from the `kubectl get ingress` and open it in your 
 
 https://github.com/user-attachments/assets/d648cb16-6008-44b0-ad2a-b6752df40702
 # Test
-#   T e s t   c o m m e n t  
+#   T e s t   c o m m e n t 
+ 
  
