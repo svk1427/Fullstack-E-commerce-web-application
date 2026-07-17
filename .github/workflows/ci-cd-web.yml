@@ -1,12 +1,21 @@
 name: CI/CD Pipeline for Web Application
 
 on:
-   push:
-      branches:
-         - main
-      paths:
-         - 'frontend/**'
-         - 'helm-charts/web-app/**'
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
+      - 'helm-charts/web-app/**'
+      - '.github/workflows/ci-cd-web.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
+      - 'helm-charts/web-app/**'
+      - '.github/workflows/ci-cd-web.yml'
 
 jobs:
    build-and-deploy:

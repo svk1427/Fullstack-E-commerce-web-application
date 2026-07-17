@@ -1,12 +1,21 @@
 name: CI/CD Pipeline for Cart Service
 
 on:
-   push:
-      branches:
-         - main
-      paths:
-         - 'microservice-backend/cart-service/**'
-         - 'helm-charts/cart-service/**'
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'microservice-backend/cart-service/**'
+      - 'helm-charts/cart-service/**'
+      - '.github/workflows/ci-cd-cart.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'microservice-backend/cart-service/**'
+      - 'helm-charts/cart-service/**'
+      - '.github/workflows/ci-cd-cart.yml'
 
 jobs:
    build-and-deploy:

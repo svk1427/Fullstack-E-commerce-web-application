@@ -1,12 +1,21 @@
 name: CI/CD Pipeline for Order Service
 
 on:
-   push:
-      branches:
-         - main
-      paths:
-         - 'microservice-backend/order-service/**'
-         - 'helm-charts/order-service/**'
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'microservice-backend/order-service/**'
+      - 'helm-charts/order-service/**'
+      - '.github/workflows/ci-cd-order.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'microservice-backend/order-service/**'
+      - 'helm-charts/order-service/**'
+      - '.github/workflows/ci-cd-order.yml'
 
 jobs:
    build-and-deploy:

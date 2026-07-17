@@ -1,12 +1,21 @@
 name: CI/CD Pipeline for Category Service
 
 on:
-   push:
-      branches:
-         - main
-      paths:
-         - 'microservice-backend/category-service/**'
-         - 'helm-charts/category-service/**'
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'microservice-backend/category-service/**'
+      - 'helm-charts/category-service/**'
+      - '.github/workflows/ci-cd-category.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'microservice-backend/category-service/**'
+      - 'helm-charts/category-service/**'
+      - '.github/workflows/ci-cd-category.yml'
 
 jobs:
    build-and-deploy:

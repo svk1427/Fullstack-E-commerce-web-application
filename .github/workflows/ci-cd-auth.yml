@@ -1,12 +1,21 @@
 name: CI/CD Pipeline for Auth Service
 
 on:
-   push:
-      branches:
-         - main
-      paths:
-         - 'microservice-backend/auth-service/**'
-         - 'helm-charts/auth-service/**'
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'microservice-backend/auth-service/**'
+      - 'helm-charts/auth-service/**'
+      - '.github/workflows/ci-cd-auth.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'microservice-backend/auth-service/**'
+      - 'helm-charts/auth-service/**'
+      - '.github/workflows/ci-cd-auth.yml'
 
 jobs:
    build-and-deploy:

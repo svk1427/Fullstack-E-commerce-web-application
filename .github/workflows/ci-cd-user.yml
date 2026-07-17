@@ -1,12 +1,21 @@
 name: CI/CD Pipeline for User Service
 
 on:
-   push:
-      branches:
-         - main
-      paths:
-         - 'microservice-backend/user-service/**'
-         - 'helm-charts/user-service/**'
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'microservice-backend/user-service/**'
+      - 'helm-charts/user-service/**'
+      - '.github/workflows/ci-cd-user.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'microservice-backend/user-service/**'
+      - 'helm-charts/user-service/**'
+      - '.github/workflows/ci-cd-user.yml'
 
 jobs:
    build-and-deploy:

@@ -1,12 +1,21 @@
 name: CI/CD Pipeline for Product Service
 
 on:
-   push:
-      branches:
-         - main
-      paths:
-         - 'microservice-backend/product-service/**'
-         - 'helm-charts/product-service/**'
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'microservice-backend/product-service/**'
+      - 'helm-charts/product-service/**'
+      - '.github/workflows/ci-cd-product.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'microservice-backend/product-service/**'
+      - 'helm-charts/product-service/**'
+      - '.github/workflows/ci-cd-product.yml'
 
 jobs:
    build-and-deploy:

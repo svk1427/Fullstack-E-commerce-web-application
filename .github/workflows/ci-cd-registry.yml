@@ -1,12 +1,21 @@
 name: CI/CD Pipeline for Service Registry
 
 on:
-   push:
-      branches:
-         - main
-      paths:
-         - 'microservice-backend/service-registry/**'
-         - 'helm-charts/service-registry/**'
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'microservice-backend/service-registry/**'
+      - 'helm-charts/service-registry/**'
+      - '.github/workflows/ci-cd-registry.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'microservice-backend/service-registry/**'
+      - 'helm-charts/service-registry/**'
+      - '.github/workflows/ci-cd-registry.yml'
 
 jobs:
    build-and-deploy:
