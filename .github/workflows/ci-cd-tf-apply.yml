@@ -20,6 +20,7 @@ jobs:
   terraform-plan-job:
     name: Terraform Plan (Pre-approval)
     runs-on: ubuntu-latest
+    environment: dev
     timeout-minutes: 30
     defaults:
       run:
