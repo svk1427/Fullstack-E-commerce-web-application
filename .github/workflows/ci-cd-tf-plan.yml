@@ -30,7 +30,7 @@ jobs:
     environment: dev
     defaults:
       run:
-        working-directory: terraform
+        working-directory: terraform/us-east-1
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -81,7 +81,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: tfplan-${{ github.run_id }}
-          path: terraform/tfplan
+          path: terraform/us-east-1/tfplan
           retention-days: 1
       - name: Comment PR with Plan
         if: github.event_name == 'pull_request'
@@ -90,7 +90,7 @@ jobs:
           script: |
             const fs = require('fs');
             try {
-              const planOutput = fs.readFileSync('terraform/tfplan.txt', 'utf8');
+              const planOutput = fs.readFileSync('terraform/us-east-1/tfplan.txt', 'utf8');
               const maxLength = 60000;
               let displayPlan = planOutput;
               if (planOutput.length > maxLength) {

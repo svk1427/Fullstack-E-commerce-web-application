@@ -1,12 +1,19 @@
 name: Terraform Apply
+# Only manual trigger - no automatic apply on push
+
+# This ensures terraform plan runs first, and apply is explicitly approved
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - 'terraform/**'
-      - 'bootstrap/**'
+    inputs:
+      confirm_apply:
+        description: 'Type "apply" to confirm you want to apply changes'
+        required: true
+        type: string
+      target:
+        description: 'Optional: Target specific resources (comma-separated)'
+        required: false
+        type: string
+        default: ''
 permissions:
   id-token: write
   contents: read
@@ -17,14 +24,26 @@ env:
   TF_INPUT: false
   TF_IN_AUTOMATION: true
 jobs:
+  validate-input:
+    name: Validate Apply Confirmation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check confirmation input
+        if: ${{ github.event.inputs.confirm_apply != 'apply' }}
+        run: |
+          echo "::error::You must type 'apply' to confirm. You entered: '${{ github.event.inputs.confirm_apply }}'"
+          exit 1
+      - name: Confirmation accepted
+        run: echo "✅ Apply confirmed. Proceeding with Terraform Apply..."
   terraform-plan-job:
     name: Terraform Plan (Pre-approval)
     runs-on: ubuntu-latest
+    needs: validate-input
     environment: dev
     timeout-minutes: 30
     defaults:
       run:
-        working-directory: terraform
+        working-directory: terraform/us-east-1
     outputs:
       plan-status: ${{ steps.plan.outcome }}
     steps:
@@ -73,7 +92,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: tfplan-pre-apply-${{ github.run_id }}
-          path: terraform/tfplan
+          path: terraform/us-east-1/tfplan
           retention-days: 1
   terraform-apply-job:
     name: Terraform Apply (Requires Approval)
@@ -83,7 +102,7 @@ jobs:
     timeout-minutes: 30
     defaults:
       run:
-        working-directory: terraform
+        working-directory: terraform/us-east-1
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -120,7 +139,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: tfplan-pre-apply-${{ github.run_id }}
-          path: terraform/
+          path: terraform/us-east-1/
       - name: Terraform Apply
         run: terraform apply -no-color -input=false tfplan
       - name: Export Terraform Outputs
@@ -129,7 +148,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: tf-outputs-${{ github.run_id }}
-          path: terraform/outputs.json
+          path: terraform/us-east-1/outputs.json
           retention-days: 30
       - name: Post Apply Summary
         uses: actions/github-script@v7
