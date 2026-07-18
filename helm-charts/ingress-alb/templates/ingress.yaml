@@ -1,26 +1,33 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: purely-ingress
+  name: {{ .Values.ingress.name }}
+  namespace: {{ .Values.ingress.namespace | default "default" }}
   annotations:
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/target-type: ip
+    # ALB Ingress Controller Annotations
+    alb.ingress.kubernetes.io/scheme: {{ .Values.ingress.alb.scheme }}
+    alb.ingress.kubernetes.io/target-type: {{ .Values.ingress.alb.targetType }}
+    alb.ingress.kubernetes.io/listen-ports: '{{ .Values.ingress.alb.listenPorts }}'
+    # Health Check Settings
+    alb.ingress.kubernetes.io/healthcheck-path: {{ .Values.ingress.alb.healthcheckPath }}
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '{{ .Values.ingress.alb.healthcheckInterval }}'
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '{{ .Values.ingress.alb.healthcheckTimeout }}'
+    alb.ingress.kubernetes.io/healthy-threshold-count: '{{ .Values.ingress.alb.healthyThreshold }}'
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: '{{ .Values.ingress.alb.unhealthyThreshold }}'
+    alb.ingress.kubernetes.io/success-codes: '{{ .Values.ingress.alb.successCodes }}'
+    # Load Balancer Attributes
+    alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=60
 spec:
-  ingressClassName: alb
+  ingressClassName: {{ .Values.ingress.alb.ingressClassName }}
   rules:
     - http:
         paths:
-        - path: /
-          pathType: Prefix
-          backend:
-            service:
-              name: web-app-svc
-              port:
-                number: 80
-        - path: /api
-          pathType: Prefix
-          backend:
-            service:
-              name: gateway-svc
-              port:
-                number: 80
+        {{- range .Values.ingress.rules }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ .serviceName }}
+                port:
+                  number: {{ .servicePort }}
+        {{- end }}

@@ -2,7 +2,7 @@
 resource "kubernetes_ingress_class_v1" "ingress_class_default" {
   depends_on = [helm_release.loadbalancer_controller]
   metadata {
-    name = "my-aws-ingress-class"
+    name = "alb"
     annotations = {
       "ingressclass.kubernetes.io/is-default-class" = "true"
     }
@@ -10,6 +10,12 @@ resource "kubernetes_ingress_class_v1" "ingress_class_default" {
   spec {
     controller = "ingress.k8s.aws/alb"
   }
+}
+
+# Output: ALB Ingress Class Name
+output "ingress_class_name" {
+  description = "Ingress Class Name for ALB"
+  value       = kubernetes_ingress_class_v1.ingress_class_default.metadata[0].name
 }
 
 ## Additional Note

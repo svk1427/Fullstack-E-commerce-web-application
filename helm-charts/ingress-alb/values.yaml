@@ -1,14 +1,32 @@
 ingress:
-  name: ingress-alb
-  scheme: internet-facing
-  target: ip
-  ingressClassName: alb
+  name: purely-ingress
+  namespace: default
+  # ALB Configuration
+  alb:
+    scheme: internet-facing # internet-facing or internal
+    targetType: ip # ip or instance
+    ingressClassName: alb
+    listenPorts: '[{"HTTP": 80}]' # Add HTTPS if needed
+    healthcheckPath: /
+    healthcheckInterval: "15"
+    healthcheckTimeout: "5"
+    healthyThreshold: "2"
+    unhealthyThreshold: "2"
+    successCodes: "200-399"
+  # Path-based routing rules
   rules:
-    web: 
-      path: /
-      port: 80
-      name: web-app-svc
-    gateway: 
-      path: /api
-      port: 80
-      name: gateway-svc
+    # Frontend Web Application - serves the React/Vite app
+    - path: /
+      pathType: Prefix
+      serviceName: web-app-svc
+      servicePort: 80
+    # API Gateway - all API calls go through this
+    - path: /api
+      pathType: Prefix
+      serviceName: gateway-svc
+      servicePort: 80
+    # Direct microservice routes (optional, for debugging/admin)
+    - path: /eureka
+      pathType: Prefix
+      serviceName: registry-svc
+      servicePort: 80
