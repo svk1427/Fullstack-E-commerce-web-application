@@ -14,7 +14,7 @@ resource "aws_eks_node_group" "eks_ng_public" {
 
 
   remote_access {
-    ec2_ssh_key = "eks-terraform-key"
+    ec2_ssh_key = "vamsiacc"
   }
 
   scaling_config {
