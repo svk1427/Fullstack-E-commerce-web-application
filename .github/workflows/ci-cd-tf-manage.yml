@@ -14,7 +14,13 @@ on:
           - apply
           - destroy
           - plan-destroy
+          - force-unlock
         default: 'plan'
+      lock_id:
+        description: 'Lock ID for force-unlock (get from error message)'
+        required: false
+        type: string
+        default: ''
       confirm:
         description: 'Type "yes" to confirm apply/destroy (not needed for plan)'
         required: false
@@ -44,7 +50,7 @@ jobs:
     steps:
       - name: Check Confirmation
         id: check
-        run: "ACTION=\"${{ github.event.inputs.action }}\"\nCONFIRM=\"${{ github.event.inputs.confirm }}\"\n\n# Mark destructive actions\nif [[ \"$ACTION\" == \"apply\" || \"$ACTION\" == \"destroy\" ]]; then\n  echo \"is-destructive=true\" >> $GITHUB_OUTPUT\n  \n  if [[ \"$CONFIRM\" != \"yes\" ]]; then\n    echo \"::error::⚠️ DESTRUCTIVE ACTION REQUIRES CONFIRMATION!\"\n    echo \"::error::You selected '$ACTION' but didn't type 'yes' to confirm.\"\n    echo \"::error::Please re-run and type 'yes' in the confirm field.\"\n    exit 1\n  fi\n  echo \"✅ Confirmation received for $ACTION\"\nelse\n  echo \"is-destructive=false\" >> $GITHUB_OUTPUT\n  echo \"✅ Running $ACTION (no confirmation needed)\"\nfi\n"
+        run: "ACTION=\"${{ github.event.inputs.action }}\"\nCONFIRM=\"${{ github.event.inputs.confirm }}\"\nLOCK_ID=\"${{ github.event.inputs.lock_id }}\"\n\n# Mark destructive actions\nif [[ \"$ACTION\" == \"apply\" || \"$ACTION\" == \"destroy\" ]]; then\n  echo \"is-destructive=true\" >> $GITHUB_OUTPUT\n  \n  if [[ \"$CONFIRM\" != \"yes\" ]]; then\n    echo \"::error::⚠️ DESTRUCTIVE ACTION REQUIRES CONFIRMATION!\"\n    echo \"::error::You selected '$ACTION' but didn't type 'yes' to confirm.\"\n    echo \"::error::Please re-run and type 'yes' in the confirm field.\"\n    exit 1\n  fi\n  echo \"✅ Confirmation received for $ACTION\"\nelif [[ \"$ACTION\" == \"force-unlock\" ]]; then\n  echo \"is-destructive=true\" >> $GITHUB_OUTPUT\n  if [[ -z \"$LOCK_ID\" ]]; then\n    echo \"::error::⚠️ LOCK ID REQUIRED!\"\n    echo \"::error::Please provide the Lock ID from the error message.\"\n    exit 1\n  fi\n  echo \"✅ Force-unlock requested for lock: $LOCK_ID\"\nelse\n  echo \"is-destructive=false\" >> $GITHUB_OUTPUT\n  echo \"✅ Running $ACTION (no confirmation needed)\"\nfi\n"
   terraform:
     name: Terraform ${{ github.event.inputs.action }}
     runs-on: ubuntu-latest
@@ -156,6 +162,15 @@ jobs:
             done
           fi
           terraform destroy -auto-approve -no-color -parallelism=10 $TARGET_ARGS
+      - name: Terraform Force Unlock
+        # ============= FORCE UNLOCK =============
+
+        if: github.event.inputs.action == 'force-unlock'
+        run: |
+          echo "🔓 FORCE UNLOCKING TERRAFORM STATE..."
+          echo "Lock ID: ${{ github.event.inputs.lock_id }}"
+          terraform force-unlock -force ${{ github.event.inputs.lock_id }}
+          echo "✅ State lock released successfully"
       - name: Generate Summary
         # ============= SUMMARY =============
 
