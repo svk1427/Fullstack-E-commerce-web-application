@@ -1,3 +1,10 @@
+# =============================================================================
+# ECR REPOSITORIES FOR MICROSERVICES
+# =============================================================================
+# This file creates ECR repositories for all microservices
+# Path Filter Test: Changes here should ONLY trigger ci-cd-tf-manage.yml
+# =============================================================================
+
 resource "aws_ecr_repository" "purely_service_registry" {
   name                 = "purely_service_registry"
   image_tag_mutability = "MUTABLE"
