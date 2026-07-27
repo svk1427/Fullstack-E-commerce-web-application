@@ -1,28 +1,13 @@
 # =============================================================================
-# AUTH SERVICE - ENTERPRISE CI/CD PIPELINE
+# AUTH SERVICE - PRODUCTION CI/CD PIPELINE
 # =============================================================================
 # Handles authentication and JWT token management
-# Triggers: Push to main, PR to main, Manual dispatch
+# Triggers: Push to main (auto), Manual dispatch
+# Environment: PRODUCTION ONLY
 # =============================================================================
 name: "🔐 Auth Service CI/CD"
 on:
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Target environment'
-        required: true
-        default: 'dev'
-        type: choice
-        options:
-          - dev
-          - qa
-          - prod
-  pull_request:
-    branches: [main, develop]
-    paths:
-      - 'microservice-backend/auth-service/**'
-      - 'helm-charts/auth-service/**'
-      - '.github/workflows/ci-cd-auth.yml'
   push:
     branches: [main]
     paths:
@@ -37,11 +22,10 @@ env:
   HELM_VERSION: '3.14.0'
   AWS_REGION: us-east-1
 jobs:
-  build:
-    name: "🔨 Build & Test"
+  build-and-deploy:
+    name: "🔨 Build & Deploy to PROD"
     runs-on: ubuntu-latest
-    outputs:
-      short_sha: ${{ steps.vars.outputs.short_sha }}
+    environment: production
     steps:
       - name: "📥 Checkout Code"
         uses: actions/checkout@v4
@@ -75,117 +59,22 @@ jobs:
         run: |
           docker build -t $ECR_REGISTRY/${{ secrets.ECR_AUTH_REPOSITORY }}:$IMAGE_TAG ${{ env.SERVICE_PATH }}
           docker push $ECR_REGISTRY/${{ secrets.ECR_AUTH_REPOSITORY }}:$IMAGE_TAG
-  deploy-dev:
-    name: "🚀 Deploy to DEV"
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'dev')
-    environment: dev
-    steps:
-      - name: "📥 Checkout Code"
-        uses: actions/checkout@v4
-      - name: "🔐 Configure AWS"
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-      - name: "🔑 Login to ECR"
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
       - name: "☸️ Update Kubeconfig"
         run: aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
       - name: "⚓ Setup Helm"
         uses: azure/setup-helm@v4
         with:
           version: ${{ env.HELM_VERSION }}
-      - name: "🚀 Deploy"
+      - name: "🚀 Deploy to PRODUCTION"
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ needs.build.outputs.short_sha }}
-        run: |
-          helm upgrade --install ${{ env.SERVICE_NAME }} ${{ env.HELM_CHART_PATH }} \
-            --namespace dev --create-namespace \
-            -f helm-charts/environments/dev/${{ env.SERVICE_NAME }}.yaml \
-            --set ${{ env.HELM_VALUE_KEY }}.image.repository=$ECR_REGISTRY/${{ secrets.ECR_AUTH_REPOSITORY }} \
-            --set ${{ env.HELM_VALUE_KEY }}.image.tag=$IMAGE_TAG \
-            --set secret.SPRING_DATA_MONGODB_URI_AUTH=${{ secrets.SPRING_DATA_MONGODB_URI_AUTH }} \
-            --wait --timeout 5m
-  deploy-qa:
-    name: "🧪 Deploy to QA"
-    needs: [build, deploy-dev]
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'qa'
-    environment: qa
-    steps:
-      - name: "📥 Checkout Code"
-        uses: actions/checkout@v4
-      - name: "🔐 Configure AWS"
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-      - name: "🔑 Login to ECR"
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-      - name: "☸️ Update Kubeconfig"
-        run: aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
-      - name: "⚓ Setup Helm"
-        uses: azure/setup-helm@v4
-        with:
-          version: ${{ env.HELM_VERSION }}
-      - name: "🚀 Deploy"
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ needs.build.outputs.short_sha }}
-        run: |
-          helm upgrade --install ${{ env.SERVICE_NAME }} ${{ env.HELM_CHART_PATH }} \
-            --namespace qa --create-namespace \
-            -f helm-charts/environments/qa/${{ env.SERVICE_NAME }}.yaml \
-            --set ${{ env.HELM_VALUE_KEY }}.image.repository=$ECR_REGISTRY/${{ secrets.ECR_AUTH_REPOSITORY }} \
-            --set ${{ env.HELM_VALUE_KEY }}.image.tag=$IMAGE_TAG \
-            --set secret.SPRING_DATA_MONGODB_URI_AUTH=${{ secrets.SPRING_DATA_MONGODB_URI_AUTH }} \
-            --wait --timeout 5m
-  deploy-prod:
-    name: "🏭 Deploy to PRODUCTION"
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'prod'
-    environment: production
-    steps:
-      - name: "📥 Checkout Code"
-        uses: actions/checkout@v4
-      - name: "⚠️ Production Warning"
-        run: |
-          echo "╔═══════════════════════════════════════════════════════════════╗"
-          echo "║           ⚠️  PRODUCTION DEPLOYMENT IN PROGRESS ⚠️             ║"
-          echo "╚═══════════════════════════════════════════════════════════════╝"
-      - name: "🔐 Configure AWS"
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-      - name: "🔑 Login to ECR"
-        id: login-ecr
-        uses: aws-actions-amazon-ecr-login@v2
-      - name: "☸️ Update Kubeconfig"
-        run: aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
-      - name: "⚓ Setup Helm"
-        uses: azure/setup-helm@v4
-        with:
-          version: ${{ env.HELM_VERSION }}
-      - name: "🚀 Deploy"
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ needs.build.outputs.short_sha }}
+          IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
         run: |
           helm upgrade --install ${{ env.SERVICE_NAME }} ${{ env.HELM_CHART_PATH }} \
             --namespace prod --create-namespace \
             --set ${{ env.HELM_VALUE_KEY }}.image.repository=$ECR_REGISTRY/${{ secrets.ECR_AUTH_REPOSITORY }} \
             --set ${{ env.HELM_VALUE_KEY }}.image.tag=$IMAGE_TAG \
             --set secret.SPRING_DATA_MONGODB_URI_AUTH=${{ secrets.SPRING_DATA_MONGODB_URI_AUTH }} \
-            --wait --timeout 10m
+            --wait --timeout 5m
       - name: "✅ Verify Deployment"
         run: kubectl rollout status deployment/auth-depl -n prod --timeout=300s

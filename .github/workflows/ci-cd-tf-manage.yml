@@ -20,6 +20,7 @@ on:
       - 'terraform/**'
       - 'bootstrap/**'
   # Manual trigger for apply/destroy
+
   workflow_dispatch:
     inputs:
       action:
@@ -95,13 +96,14 @@ jobs:
             echo "✅ Confirmation received for $ACTION"
           fi
   # ---------------------------------------------------------------------------
+
   # JOB: Terraform
   # ---------------------------------------------------------------------------
   terraform:
     name: "🏗️ Terraform ${{ needs.setup.outputs.action }}"
     runs-on: ubuntu-latest
     needs: setup
-    environment: ${{ needs.setup.outputs.action == 'apply' || needs.setup.outputs.action == 'destroy' && 'production' || 'dev' }}
+    environment: production
     timeout-minutes: 60
     defaults:
       run:

@@ -1,27 +1,14 @@
 # =============================================================================
-# INGRESS ALB - ENTERPRISE CI/CD PIPELINE
+# INGRESS ALB - PRODUCTION CI/CD PIPELINE
 # =============================================================================
 # Deploys AWS ALB Ingress Controller configuration
 # No Docker build - Helm only deployment
+# Triggers: Push to main (auto), Manual dispatch
+# Environment: PRODUCTION ONLY
 # =============================================================================
 name: "🌐 Ingress ALB CI/CD"
 on:
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Target environment'
-        required: true
-        default: 'dev'
-        type: choice
-        options:
-          - dev
-          - qa
-          - prod
-  pull_request:
-    branches: [main, develop]
-    paths:
-      - 'helm-charts/ingress-alb/**'
-      - '.github/workflows/ci-cd-ingress.yml'
   push:
     branches: [main]
     paths:
@@ -32,20 +19,14 @@ env:
   HELM_VERSION: '3.14.0'
   AWS_REGION: us-east-1
 jobs:
-  # ---------------------------------------------------------------------------
-  # DEPLOY TO DEV (Auto on push)
-  # ---------------------------------------------------------------------------
-  deploy-dev:
-    name: "🚀 Deploy Ingress to DEV"
+  deploy:
+    name: "🚀 Deploy Ingress to PROD"
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'dev')
-    environment:
-      name: dev
-      url: https://dev.yourdomain.com
+    environment: production
     steps:
       - name: "📥 Checkout Code"
         uses: actions/checkout@v4
-      - name: "🔐 Configure AWS Credentials"
+      - name: "🔐 Configure AWS"
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -59,95 +40,14 @@ jobs:
           version: ${{ env.HELM_VERSION }}
       - name: "🔍 Validate Helm Chart"
         run: helm lint ${{ env.HELM_CHART_PATH }}
-      - name: "🚀 Deploy Ingress to DEV"
-        run: |
-          helm upgrade --install ${{ env.SERVICE_NAME }} ${{ env.HELM_CHART_PATH }} \
-            --namespace dev --create-namespace \
-            -f helm-charts/environments/dev/${{ env.SERVICE_NAME }}.yaml \
-            --wait --timeout 5m
-      - name: "✅ Verify Ingress"
-        run: |
-          kubectl get ingress -n dev
-          echo "Waiting for ALB to be provisioned..."
-          sleep 30
-          kubectl describe ingress -n dev
-  # ---------------------------------------------------------------------------
-  # DEPLOY TO QA
-  # ---------------------------------------------------------------------------
-  deploy-qa:
-    name: "🧪 Deploy Ingress to QA"
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'qa'
-    environment:
-      name: qa
-      url: https://qa.yourdomain.com
-    steps:
-      - name: "📥 Checkout Code"
-        uses: actions/checkout@v4
-      - name: "🔐 Configure AWS Credentials"
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-      - name: "☸️ Update Kubeconfig"
-        run: aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
-      - name: "⚓ Setup Helm"
-        uses: azure/setup-helm@v4
-        with:
-          version: ${{ env.HELM_VERSION }}
-      - name: "🚀 Deploy Ingress to QA"
-        run: |
-          helm upgrade --install ${{ env.SERVICE_NAME }} ${{ env.HELM_CHART_PATH }} \
-            --namespace qa --create-namespace \
-            -f helm-charts/environments/qa/${{ env.SERVICE_NAME }}.yaml \
-            --wait --timeout 5m
-  # ---------------------------------------------------------------------------
-  # DEPLOY TO PRODUCTION
-  # ---------------------------------------------------------------------------
-  deploy-prod:
-    name: "🏭 Deploy Ingress to PRODUCTION"
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'prod'
-    environment:
-      name: production
-      url: https://www.yourdomain.com
-    steps:
-      - name: "📥 Checkout Code"
-        uses: actions/checkout@v4
-      - name: "⚠️ Production Warning"
-        run: |
-          echo "╔═══════════════════════════════════════════════════════════════╗"
-          echo "║      ⚠️  PRODUCTION INGRESS DEPLOYMENT IN PROGRESS ⚠️          ║"
-          echo "║      This will update the production load balancer!           ║"
-          echo "╚═══════════════════════════════════════════════════════════════╝"
-      - name: "🔐 Configure AWS Credentials"
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-      - name: "☸️ Update Kubeconfig"
-        run: aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
-      - name: "⚓ Setup Helm"
-        uses: azure/setup-helm@v4
-        with:
-          version: ${{ env.HELM_VERSION }}
       - name: "🚀 Deploy Ingress to PRODUCTION"
         run: |
           helm upgrade --install ${{ env.SERVICE_NAME }} ${{ env.HELM_CHART_PATH }} \
             --namespace prod --create-namespace \
-            -f helm-charts/environments/prod/${{ env.SERVICE_NAME }}.yaml \
-            --wait --timeout 10m
-      - name: "✅ Verify Production Ingress"
+            --wait --timeout 5m
+      - name: "✅ Verify Ingress"
         run: |
           kubectl get ingress -n prod
+          echo "Waiting for ALB to be provisioned..."
+          sleep 30
           kubectl describe ingress -n prod
-      - name: "📝 Production Summary"
-        run: |
-          echo "## 🎉 Ingress Deployment Complete" >> $GITHUB_STEP_SUMMARY
-          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Environment | Production |" >> $GITHUB_STEP_SUMMARY
-          echo "| Frontend URL | https://www.yourdomain.com |" >> $GITHUB_STEP_SUMMARY
-          echo "| API URL | https://api.yourdomain.com |" >> $GITHUB_STEP_SUMMARY
