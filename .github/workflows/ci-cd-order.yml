@@ -1,55 +1,113 @@
-name: CI/CD Pipeline for Order Service
+# =============================================================================
+# ORDER SERVICE - MULTI-ENVIRONMENT CI/CD PIPELINE
+# =============================================================================
+# Manages order processing
+# Triggers: Push to main → PROD (ecommerce namespace), Manual → any env
+# Namespaces: dev, qa, preprod, ecommerce (prod)
+# =============================================================================
+name: "📋 Order Service CI/CD"
 on:
   workflow_dispatch:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - 'microservice-backend/order-service/**'
-      - 'helm-charts/order-service/**'
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'prod'
+        type: choice
+        options:
+          - dev
+          - qa
+          - preprod
+          - prod
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - 'microservice-backend/order-service/**'
       - 'helm-charts/order-service/**'
+env:
+  SERVICE_NAME: order-service
+  SERVICE_PATH: microservice-backend/order-service
+  HELM_CHART_PATH: helm-charts/order-service
+  HELM_VALUE_KEY: order
+  JAVA_VERSION: '17'
+  HELM_VERSION: '3.14.0'
+  AWS_REGION: us-east-1
 jobs:
   build-and-deploy:
+    name: "🔨 Build & Deploy"
     runs-on: ubuntu-latest
-    environment: production
+    environment: ${{ (github.event.inputs.environment == 'prod' || github.event.inputs.environment == '' || github.event.inputs.environment == 'preprod') && 'production' || github.event.inputs.environment }}
     steps:
-      - name: Checkout code
+      - name: "📋 Set Environment Variables"
+        id: env-setup
+        run: |
+          INPUT_ENV="${{ github.event.inputs.environment }}"
+          TARGET_ENV="${INPUT_ENV:-prod}"
+          if [ "$TARGET_ENV" == "prod" ]; then
+            K8S_NAMESPACE="ecommerce"
+          else
+            K8S_NAMESPACE="$TARGET_ENV"
+          fi
+          echo "target_env=$TARGET_ENV" >> $GITHUB_OUTPUT
+          echo "k8s_namespace=$K8S_NAMESPACE" >> $GITHUB_OUTPUT
+          echo "short_sha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+          echo "🎯 Target: $TARGET_ENV → Namespace: $K8S_NAMESPACE"
+      - name: "📥 Checkout Code"
         uses: actions/checkout@v4
-      - name: Set up Java
-        uses: actions/setup-java@v3
+      - name: "☕ Setup Java"
+        uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
+          cache: 'maven'
+      - name: "🔍 Build & Test"
+        working-directory: ${{ env.SERVICE_PATH }}
+        run: |
+          chmod +x mvnw
+          ./mvnw clean verify -B
+      - name: "🔐 Configure AWS"
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-      - name: Login to Amazon ECR
+          aws-region: ${{ env.AWS_REGION }}
+      - name: "🔑 Login to ECR"
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
-      - name: Build, tag, and push image to Amazon ECR
-        id: build-image
+      - name: "🐳 Build & Push Image"
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
+          IMAGE_TAG: ${{ steps.env-setup.outputs.short_sha }}
         run: |
-          docker build -t $ECR_REGISTRY/${{ secrets.ECR_ORDER_REPOSITORY }}:$IMAGE_TAG microservice-backend/order-service
+          docker build -t $ECR_REGISTRY/${{ secrets.ECR_ORDER_REPOSITORY }}:$IMAGE_TAG ${{ env.SERVICE_PATH }}
           docker push $ECR_REGISTRY/${{ secrets.ECR_ORDER_REPOSITORY }}:$IMAGE_TAG
-      - name: Update Kubeconfig
-        run: aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER }} --region ${{ secrets.AWS_REGION }}
-      - name: Install Helm
-        uses: azure/setup-helm@v1
+      - name: "☸️ Update Kubeconfig"
+        run: aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
+      - name: "⚓ Setup Helm"
+        uses: azure/setup-helm@v4
         with:
-          version: v3.12.0
-      - name: Deploy Helm Chart
+          version: ${{ env.HELM_VERSION }}
+      - name: "🚀 Deploy to ${{ steps.env-setup.outputs.k8s_namespace }}"
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: helm upgrade --install order-service helm-charts/order-service --set order.image=$ECR_REGISTRY/${{ secrets.ECR_ORDER_REPOSITORY }}:$IMAGE_TAG --set secret.SPRING_DATA_MONGODB_URI_ORDER=${{ secrets.SPRING_DATA_MONGODB_URI_ORDER }}
+          IMAGE_TAG: ${{ steps.env-setup.outputs.short_sha }}
+          TARGET_ENV: ${{ steps.env-setup.outputs.target_env }}
+          K8S_NAMESPACE: ${{ steps.env-setup.outputs.k8s_namespace }}
+        run: |
+          ENV_FILE="helm-charts/environments/${TARGET_ENV}/${{ env.SERVICE_NAME }}.yaml"
+          HELM_CMD="helm upgrade --install ${{ env.SERVICE_NAME }} ${{ env.HELM_CHART_PATH }}"
+          HELM_CMD="$HELM_CMD --namespace ${K8S_NAMESPACE} --create-namespace"
+          if [ -f "$ENV_FILE" ]; then
+            echo "📁 Using environment override: $ENV_FILE"
+            HELM_CMD="$HELM_CMD -f $ENV_FILE"
+          fi
+          HELM_CMD="$HELM_CMD --set ${{ env.HELM_VALUE_KEY }}.image.repository=$ECR_REGISTRY/${{ secrets.ECR_ORDER_REPOSITORY }}"
+          HELM_CMD="$HELM_CMD --set ${{ env.HELM_VALUE_KEY }}.image.tag=$IMAGE_TAG"
+          HELM_CMD="$HELM_CMD --set secret.SPRING_DATA_MONGODB_URI_ORDER=${{ secrets.SPRING_DATA_MONGODB_URI_ORDER }}"
+          HELM_CMD="$HELM_CMD --wait --timeout 5m"
+          echo "🚀 Deploying to namespace: ${K8S_NAMESPACE}"
+          $HELM_CMD
+      - name: "✅ Verify Deployment"
+        env:
+          K8S_NAMESPACE: ${{ steps.env-setup.outputs.k8s_namespace }}
+        run: kubectl rollout status deployment/order-depl -n ${K8S_NAMESPACE} --timeout=300s

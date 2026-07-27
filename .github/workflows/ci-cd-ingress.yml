@@ -1,14 +1,24 @@
 # =============================================================================
-# INGRESS ALB - PRODUCTION CI/CD PIPELINE
+# INGRESS ALB - MULTI-ENVIRONMENT CI/CD PIPELINE
 # =============================================================================
-# Deploys AWS ALB Ingress Controller configuration
-# No Docker build - Helm only deployment
-# Triggers: Push to main (auto), Manual dispatch
-# Environment: PRODUCTION ONLY
+# AWS ALB Ingress Controller configuration (Helm only, no Docker)
+# Triggers: Push to main → PROD (ecommerce namespace), Manual → any env
+# Namespaces: dev, qa, preprod, ecommerce (prod)
 # =============================================================================
 name: "🌐 Ingress ALB CI/CD"
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'prod'
+        type: choice
+        options:
+          - dev
+          - qa
+          - preprod
+          - prod
   push:
     branches: [main]
     paths:
@@ -20,10 +30,23 @@ env:
   AWS_REGION: us-east-1
 jobs:
   deploy:
-    name: "🚀 Deploy Ingress to PROD"
+    name: "🚀 Deploy Ingress"
     runs-on: ubuntu-latest
-    environment: production
+    environment: ${{ (github.event.inputs.environment == 'prod' || github.event.inputs.environment == '' || github.event.inputs.environment == 'preprod') && 'production' || github.event.inputs.environment }}
     steps:
+      - name: "📋 Set Environment Variables"
+        id: env-setup
+        run: |
+          INPUT_ENV="${{ github.event.inputs.environment }}"
+          TARGET_ENV="${INPUT_ENV:-prod}"
+          if [ "$TARGET_ENV" == "prod" ]; then
+            K8S_NAMESPACE="ecommerce"
+          else
+            K8S_NAMESPACE="$TARGET_ENV"
+          fi
+          echo "target_env=$TARGET_ENV" >> $GITHUB_OUTPUT
+          echo "k8s_namespace=$K8S_NAMESPACE" >> $GITHUB_OUTPUT
+          echo "🎯 Target: $TARGET_ENV → Namespace: $K8S_NAMESPACE"
       - name: "📥 Checkout Code"
         uses: actions/checkout@v4
       - name: "🔐 Configure AWS"
@@ -40,14 +63,26 @@ jobs:
           version: ${{ env.HELM_VERSION }}
       - name: "🔍 Validate Helm Chart"
         run: helm lint ${{ env.HELM_CHART_PATH }}
-      - name: "🚀 Deploy Ingress to PRODUCTION"
+      - name: "🚀 Deploy Ingress to ${{ steps.env-setup.outputs.k8s_namespace }}"
+        env:
+          TARGET_ENV: ${{ steps.env-setup.outputs.target_env }}
+          K8S_NAMESPACE: ${{ steps.env-setup.outputs.k8s_namespace }}
         run: |
-          helm upgrade --install ${{ env.SERVICE_NAME }} ${{ env.HELM_CHART_PATH }} \
-            --namespace prod --create-namespace \
-            --wait --timeout 5m
+          ENV_FILE="helm-charts/environments/${TARGET_ENV}/${{ env.SERVICE_NAME }}.yaml"
+          HELM_CMD="helm upgrade --install ${{ env.SERVICE_NAME }} ${{ env.HELM_CHART_PATH }}"
+          HELM_CMD="$HELM_CMD --namespace ${K8S_NAMESPACE} --create-namespace"
+          if [ -f "$ENV_FILE" ]; then
+            echo "📁 Using environment override: $ENV_FILE"
+            HELM_CMD="$HELM_CMD -f $ENV_FILE"
+          fi
+          HELM_CMD="$HELM_CMD --wait --timeout 5m"
+          echo "🚀 Deploying to namespace: ${K8S_NAMESPACE}"
+          $HELM_CMD
       - name: "✅ Verify Ingress"
+        env:
+          K8S_NAMESPACE: ${{ steps.env-setup.outputs.k8s_namespace }}
         run: |
-          kubectl get ingress -n prod
+          kubectl get ingress -n ${K8S_NAMESPACE}
           echo "Waiting for ALB to be provisioned..."
           sleep 30
-          kubectl describe ingress -n prod
+          kubectl describe ingress -n ${K8S_NAMESPACE}

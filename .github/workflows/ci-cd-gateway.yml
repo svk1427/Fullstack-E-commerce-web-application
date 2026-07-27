@@ -1,13 +1,24 @@
 # =============================================================================
-# API GATEWAY - PRODUCTION CI/CD PIPELINE
+# API GATEWAY - MULTI-ENVIRONMENT CI/CD PIPELINE
 # =============================================================================
 # Routes all incoming traffic to microservices
-# Triggers: Push to main (auto), Manual dispatch
-# Environment: PRODUCTION ONLY
+# Triggers: Push to main → PROD (ecommerce namespace), Manual → any env
+# Namespaces: dev, qa, preprod, ecommerce (prod)
 # =============================================================================
 name: "🚀 API Gateway CI/CD"
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'prod'
+        type: choice
+        options:
+          - dev
+          - qa
+          - preprod
+          - prod
   push:
     branches: [main]
     paths:
@@ -23,15 +34,26 @@ env:
   AWS_REGION: us-east-1
 jobs:
   build-and-deploy:
-    name: "🔨 Build & Deploy to PROD"
+    name: "🔨 Build & Deploy"
     runs-on: ubuntu-latest
-    environment: production
+    environment: ${{ (github.event.inputs.environment == 'prod' || github.event.inputs.environment == '' || github.event.inputs.environment == 'preprod') && 'production' || github.event.inputs.environment }}
     steps:
+      - name: "📋 Set Environment Variables"
+        id: env-setup
+        run: |
+          INPUT_ENV="${{ github.event.inputs.environment }}"
+          TARGET_ENV="${INPUT_ENV:-prod}"
+          if [ "$TARGET_ENV" == "prod" ]; then
+            K8S_NAMESPACE="ecommerce"
+          else
+            K8S_NAMESPACE="$TARGET_ENV"
+          fi
+          echo "target_env=$TARGET_ENV" >> $GITHUB_OUTPUT
+          echo "k8s_namespace=$K8S_NAMESPACE" >> $GITHUB_OUTPUT
+          echo "short_sha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+          echo "🎯 Target: $TARGET_ENV → Namespace: $K8S_NAMESPACE"
       - name: "📥 Checkout Code"
         uses: actions/checkout@v4
-      - name: "📋 Set Variables"
-        id: vars
-        run: echo "short_sha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
       - name: "☕ Setup Java"
         uses: actions/setup-java@v4
         with:
@@ -55,7 +77,7 @@ jobs:
       - name: "🐳 Build & Push Image"
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+          IMAGE_TAG: ${{ steps.env-setup.outputs.short_sha }}
         run: |
           docker build -t $ECR_REGISTRY/${{ secrets.ECR_GATEWAY_REPOSITORY }}:$IMAGE_TAG ${{ env.SERVICE_PATH }}
           docker push $ECR_REGISTRY/${{ secrets.ECR_GATEWAY_REPOSITORY }}:$IMAGE_TAG
@@ -65,15 +87,26 @@ jobs:
         uses: azure/setup-helm@v4
         with:
           version: ${{ env.HELM_VERSION }}
-      - name: "🚀 Deploy to PRODUCTION"
+      - name: "🚀 Deploy to ${{ steps.env-setup.outputs.k8s_namespace }}"
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+          IMAGE_TAG: ${{ steps.env-setup.outputs.short_sha }}
+          TARGET_ENV: ${{ steps.env-setup.outputs.target_env }}
+          K8S_NAMESPACE: ${{ steps.env-setup.outputs.k8s_namespace }}
         run: |
-          helm upgrade --install ${{ env.SERVICE_NAME }} ${{ env.HELM_CHART_PATH }} \
-            --namespace prod --create-namespace \
-            --set ${{ env.HELM_VALUE_KEY }}.image.repository=$ECR_REGISTRY/${{ secrets.ECR_GATEWAY_REPOSITORY }} \
-            --set ${{ env.HELM_VALUE_KEY }}.image.tag=$IMAGE_TAG \
-            --wait --timeout 5m
+          ENV_FILE="helm-charts/environments/${TARGET_ENV}/${{ env.SERVICE_NAME }}.yaml"
+          HELM_CMD="helm upgrade --install ${{ env.SERVICE_NAME }} ${{ env.HELM_CHART_PATH }}"
+          HELM_CMD="$HELM_CMD --namespace ${K8S_NAMESPACE} --create-namespace"
+          if [ -f "$ENV_FILE" ]; then
+            echo "📁 Using environment override: $ENV_FILE"
+            HELM_CMD="$HELM_CMD -f $ENV_FILE"
+          fi
+          HELM_CMD="$HELM_CMD --set ${{ env.HELM_VALUE_KEY }}.image.repository=$ECR_REGISTRY/${{ secrets.ECR_GATEWAY_REPOSITORY }}"
+          HELM_CMD="$HELM_CMD --set ${{ env.HELM_VALUE_KEY }}.image.tag=$IMAGE_TAG"
+          HELM_CMD="$HELM_CMD --wait --timeout 5m"
+          echo "🚀 Deploying to namespace: ${K8S_NAMESPACE}"
+          $HELM_CMD
       - name: "✅ Verify Deployment"
-        run: kubectl rollout status deployment/gateway-depl -n prod --timeout=300s
+        env:
+          K8S_NAMESPACE: ${{ steps.env-setup.outputs.k8s_namespace }}
+        run: kubectl rollout status deployment/gateway-depl -n ${K8S_NAMESPACE} --timeout=300s
