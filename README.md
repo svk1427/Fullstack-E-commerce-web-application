@@ -488,3 +488,83 @@ https://github.com/user-attachments/assets/d648cb16-6008-44b0-ad2a-b6752df40702
 #   T e s t   c o m m e n t 
  
  
+
+# BASE (values.yaml) - COMPLETE with all settings
+web:
+  label: web-app              # ← Stays (not in override)
+  replicas: 3                 # ← OVERWRITTEN by dev
+  containerPort: 80           # ← Stays (not in override)
+  image:
+    repository: ...           # ← Stays (not in override)
+  resources:
+    requests:
+      cpu: 100m               # ← OVERWRITTEN by dev (50m)
+      memory: 128Mi           # ← OVERWRITTEN by dev (64Mi)
+  autoscaling:
+    enabled: true             # ← OVERWRITTEN by dev (false)
+    minReplicas: 3            # ← Stays (not in override)
+    maxReplicas: 20           # ← Stays (not in override)
+  service:
+    type: ClusterIP           # ← Stays (not in override)
+    port: 80                  # ← Stays (not in override)
+  pdb:
+    enabled: true             # ← OVERWRITTEN by dev (false)
+  healthCheck:
+    path: /                   # ← Stays (not in override)
+  affinity:
+    enabled: true             # ← OVERWRITTEN by dev (false)
+
+# OVERRIDE (dev/web-app.yaml) - Only differences
+web:
+  replicas: 1                 # Override: 3 → 1
+  resources:
+    requests:
+      cpu: 50m                # Override: 100m → 50m
+      memory: 64Mi            # Override: 128Mi → 64Mi
+  autoscaling:
+    enabled: false            # Override: true → false
+  pdb:
+    enabled: false            # Override: true → false
+  affinity:
+    enabled: false            # Override: true → false
+config:
+  VITE_API_GATEWAY_URL: http://localhost:8080  # Override URL
+
+
+  GitHub → Settings → Environments
+
+├── production (current)
+│   └── Secrets:
+│       ├── AWS_ACCESS_KEY_ID (prod account)
+│       ├── AWS_SECRET_ACCESS_KEY (prod account)
+│       ├── EKS_CLUSTER: prod-eks-cluster
+│       └── ECR_WEB_REPOSITORY: web-app
+│
+└── dev (new - for dev account)
+    └── Secrets:
+        ├── AWS_ACCESS_KEY_ID (dev account)
+        ├── AWS_SECRET_ACCESS_KEY (dev account)
+        ├── EKS_CLUSTER: dev-eks-cluster
+        └── ECR_WEB_REPOSITORY: web-app
+
+
+        ┌─────────────────────────────────────────────────────────────────────────────┐
+│                           HELM CHART STRUCTURE                               │
+│                                                                              │
+│  helm-charts/api-gateway/                                                   │
+│  │                                                                           │
+│  ├── templates/                    ← TEMPLATES (Reusable for ALL envs)      │
+│  │   ├── deployment.yaml           ← Has {{ .Values.xxx }} placeholders     │
+│  │   ├── service.yaml              ← Has {{ .Values.xxx }} placeholders     │
+│  │   ├── configmap.yaml            ← Has {{ .Values.xxx }} placeholders     │
+│  │   └── hpa.yaml                  ← Has {{ .Values.xxx }} placeholders     │
+│  │                                                                           │
+│  └── values.yaml                   ← DEFAULT VALUES (Production)            │
+│                                                                              │
+│  environments/                                                               │
+│  ├── dev/api-gateway.yaml          ← VALUE OVERRIDES ONLY (not templates)   │
+│  ├── qa/api-gateway.yaml           ← VALUE OVERRIDES ONLY (not templates)   │
+│  └── prod/api-gateway.yaml         ← VALUE OVERRIDES ONLY (if needed)       │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
