@@ -15,7 +15,8 @@ resource "aws_eks_node_group" "eks_ng_private" {
   
   
   remote_access {
-    ec2_ssh_key = "vamsiacc"    
+    ec2_ssh_key               = "vamsiacc"
+    source_security_group_ids = [module.public_bastion_sg.security_group_id]
   }
 
   scaling_config {
@@ -36,10 +37,5 @@ resource "aws_eks_node_group" "eks_ng_private" {
     aws_iam_role_policy_attachment.eks-AmazonEKSWorkerNodePolicy,
     aws_iam_role_policy_attachment.eks-AmazonEKS_CNI_Policy,
     aws_iam_role_policy_attachment.eks-AmazonEC2ContainerRegistryReadOnly,
-    kubernetes_config_map_v1.aws_auth 
-  ] 
-  tags = {
-    Name = "Private-Node-Group"
-  }
-}
-*/
+    kubernetes_config_map_v1.aws_auth,
+    aws_security_group.eks_nodes_sg

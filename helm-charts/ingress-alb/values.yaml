@@ -1,32 +1,45 @@
 ingress:
   name: purely-ingress
   namespace: default
-  # ALB Configuration
+  # =============================================================================
+  # ALB CONFIGURATION - PRODUCTION
+  # =============================================================================
   alb:
-    scheme: internet-facing # internet-facing or internal
-    targetType: ip # ip or instance
+    scheme: internet-facing
+    targetType: ip
     ingressClassName: alb
-    listenPorts: '[{"HTTP": 80}]' # Add HTTPS if needed
-    healthcheckPath: /
+    listenPorts: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    sslRedirect: "true"
+    # Security Group (Terraform managed - passed during deployment)
+    securityGroups: ""
+    # Health Check Configuration
+    healthcheckPath: /health
+    healthcheckProtocol: HTTP
+    healthcheckPort: traffic-port
     healthcheckInterval: "15"
     healthcheckTimeout: "5"
     healthyThreshold: "2"
-    unhealthyThreshold: "2"
-    successCodes: "200-399"
-  # Path-based routing rules
+    unhealthyThreshold: "3"
+    successCodes: "200"
+    # Load Balancer Attributes
+    idleTimeout: "120"
+    deletionProtection: "true"
+    accessLogsEnabled: "true"
+    accessLogsS3Bucket: ""
+    accessLogsS3Prefix: "alb-logs"
+    # WAF Integration
+    wafAclArn: ""
+    # Shield Protection
+    shieldAdvancedProtection: "false"
+  # =============================================================================
+  # ROUTING RULES
+  # =============================================================================
   rules:
-    # Frontend Web Application - serves the React/Vite app
     - path: /
       pathType: Prefix
       serviceName: web-app-svc
       servicePort: 80
-    # API Gateway - all API calls go through this
     - path: /api
       pathType: Prefix
       serviceName: gateway-svc
-      servicePort: 80
-    # Direct microservice routes (optional, for debugging/admin)
-    - path: /eureka
-      pathType: Prefix
-      serviceName: registry-svc
       servicePort: 80

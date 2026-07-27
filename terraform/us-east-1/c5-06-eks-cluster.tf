@@ -9,6 +9,7 @@ resource "aws_eks_cluster" "eks_cluster" {
     endpoint_private_access = var.cluster_endpoint_private_access
     endpoint_public_access  = var.cluster_endpoint_public_access
     public_access_cidrs     = var.cluster_endpoint_public_access_cidrs
+    security_group_ids      = [aws_security_group.eks_cluster_sg.id]
   }
 
   kubernetes_network_config {
@@ -23,5 +24,5 @@ resource "aws_eks_cluster" "eks_cluster" {
   depends_on = [
     aws_iam_role_policy_attachment.eks-AmazonEKSClusterPolicy,
     aws_iam_role_policy_attachment.eks-AmazonEKSVPCResourceController,
-  ]
-}
+    aws_security_group.eks_cluster_sg,
+    aws_security_group.eks_nodes_sg,
