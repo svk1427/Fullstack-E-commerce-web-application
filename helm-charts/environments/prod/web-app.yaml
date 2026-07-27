@@ -1,0 +1,7 @@
+# =============================================================================
+# WEB APP - PRODUCTION OVERRIDE (API URL only)
+# =============================================================================
+# Base values.yaml is already production-configured.
+# =============================================================================
+config:
+  VITE_API_GATEWAY_URL: https://api.yourdomain.com

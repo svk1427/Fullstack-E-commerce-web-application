@@ -1,54 +1,227 @@
-name: CI/CD Pipeline for Web Application
+# =============================================================================
+# WEB APPLICATION (FRONTEND) - ENTERPRISE CI/CD PIPELINE
+# =============================================================================
+# React/Vite Frontend with NGINX
+# Triggers: Push to main, PR to main, Manual dispatch
+# =============================================================================
+name: "🌐 Web App CI/CD"
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - qa
+          - prod
   pull_request:
-    branches:
-      - main
+    branches: [main, develop]
     paths:
       - 'frontend/**'
       - 'helm-charts/web-app/**'
+      - '.github/workflows/ci-cd-web.yml'
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - 'frontend/**'
       - 'helm-charts/web-app/**'
+env:
+  SERVICE_NAME: web-app
+  SERVICE_PATH: frontend
+  HELM_CHART_PATH: helm-charts/web-app
+  NODE_VERSION: '20'
+  HELM_VERSION: '3.14.0'
+  AWS_REGION: us-east-1
 jobs:
-  build-and-deploy:
+  # ---------------------------------------------------------------------------
+  # JOB 1: BUILD & TEST
+  # ---------------------------------------------------------------------------
+  build:
+    name: "🔨 Build & Test"
     runs-on: ubuntu-latest
-    environment: dev
+    outputs:
+      short_sha: ${{ steps.vars.outputs.short_sha }}
     steps:
-      - name: Checkout code
+      - name: "📥 Checkout Code"
         uses: actions/checkout@v4
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+      - name: "📋 Set Variables"
+        id: vars
+        run: echo "short_sha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+      - name: "📦 Setup Node.js ${{ env.NODE_VERSION }}"
+        uses: actions/setup-node@v4
         with:
-          node-version: 20
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: ${{ env.SERVICE_PATH }}/package-lock.json
+      - name: "📥 Install Dependencies"
+        working-directory: ${{ env.SERVICE_PATH }}
+        run: npm ci
+      - name: "🔍 Lint Code"
+        working-directory: ${{ env.SERVICE_PATH }}
+        run: npm run lint --if-present
+      - name: "🧪 Run Tests"
+        working-directory: ${{ env.SERVICE_PATH }}
+        run: npm test --if-present
+      - name: "🏗️ Build Application"
+        working-directory: ${{ env.SERVICE_PATH }}
+        run: npm run build
+      - name: "🔐 Configure AWS Credentials"
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-      - name: Login to Amazon ECR
+          aws-region: ${{ env.AWS_REGION }}
+      - name: "🔑 Login to Amazon ECR"
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
-      - name: Build, tag, and push image to Amazon ECR
-        id: build-image
+      - name: "🐳 Build & Push Docker Image"
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
+          IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
         run: |
-          docker build -t $ECR_REGISTRY/${{ secrets.ECR_WEB_REPOSITORY }}:$IMAGE_TAG frontend/
+          docker build -t $ECR_REGISTRY/${{ secrets.ECR_WEB_REPOSITORY }}:$IMAGE_TAG ${{ env.SERVICE_PATH }}
+          docker build -t $ECR_REGISTRY/${{ secrets.ECR_WEB_REPOSITORY }}:latest ${{ env.SERVICE_PATH }}
           docker push $ECR_REGISTRY/${{ secrets.ECR_WEB_REPOSITORY }}:$IMAGE_TAG
-      - name: Update Kubeconfig
-        run: aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER }} --region ${{ secrets.AWS_REGION }}
-      - name: Install Helm
-        uses: azure/setup-helm@v1
+          docker push $ECR_REGISTRY/${{ secrets.ECR_WEB_REPOSITORY }}:latest
+  # ---------------------------------------------------------------------------
+  # JOB 2: DEPLOY TO DEV
+  # ---------------------------------------------------------------------------
+  deploy-dev:
+    name: "🚀 Deploy to DEV"
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'dev')
+    environment:
+      name: dev
+      url: https://dev.yourdomain.com
+    steps:
+      - name: "📥 Checkout Code"
+        uses: actions/checkout@v4
+      - name: "🔐 Configure AWS Credentials"
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          version: v3.12.0
-      - name: Deploy Helm Chart
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: "🔑 Login to Amazon ECR"
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: "☸️ Update Kubeconfig"
+        run: aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
+      - name: "⚓ Setup Helm"
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+      - name: "🚀 Deploy to DEV"
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: helm upgrade --install web-app helm-charts/web-app --set web.image=$ECR_REGISTRY/${{ secrets.ECR_WEB_REPOSITORY }}:$IMAGE_TAG
+          IMAGE_TAG: ${{ needs.build.outputs.short_sha }}
+        run: |
+          helm upgrade --install ${{ env.SERVICE_NAME }} ${{ env.HELM_CHART_PATH }} \
+            --namespace dev --create-namespace \
+            -f helm-charts/environments/dev/${{ env.SERVICE_NAME }}.yaml \
+            --set web.image.repository=$ECR_REGISTRY/${{ secrets.ECR_WEB_REPOSITORY }} \
+            --set web.image.tag=$IMAGE_TAG \
+            --wait --timeout 5m
+      - name: "✅ Verify Deployment"
+        run: |
+          kubectl rollout status deployment/web-app-depl -n dev --timeout=300s
+          kubectl get pods -n dev -l app=web-app
+  # ---------------------------------------------------------------------------
+  # JOB 3: DEPLOY TO QA
+  # ---------------------------------------------------------------------------
+  deploy-qa:
+    name: "🧪 Deploy to QA"
+    needs: [build, deploy-dev]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'qa'
+    environment:
+      name: qa
+      url: https://qa.yourdomain.com
+    steps:
+      - name: "📥 Checkout Code"
+        uses: actions/checkout@v4
+      - name: "🔐 Configure AWS Credentials"
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: "🔑 Login to Amazon ECR"
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: "☸️ Update Kubeconfig"
+        run: aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
+      - name: "⚓ Setup Helm"
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+      - name: "🚀 Deploy to QA"
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ needs.build.outputs.short_sha }}
+        run: |
+          helm upgrade --install ${{ env.SERVICE_NAME }} ${{ env.HELM_CHART_PATH }} \
+            --namespace qa --create-namespace \
+            -f helm-charts/environments/qa/${{ env.SERVICE_NAME }}.yaml \
+            --set web.image.repository=$ECR_REGISTRY/${{ secrets.ECR_WEB_REPOSITORY }} \
+            --set web.image.tag=$IMAGE_TAG \
+            --wait --timeout 5m
+  # ---------------------------------------------------------------------------
+  # JOB 4: DEPLOY TO PRODUCTION
+  # ---------------------------------------------------------------------------
+  deploy-prod:
+    name: "🏭 Deploy to PRODUCTION"
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'prod'
+    environment:
+      name: production
+      url: https://www.yourdomain.com
+    steps:
+      - name: "📥 Checkout Code"
+        uses: actions/checkout@v4
+      - name: "⚠️ Production Warning"
+        run: |
+          echo "╔═══════════════════════════════════════════════════════════════╗"
+          echo "║           ⚠️  PRODUCTION DEPLOYMENT IN PROGRESS ⚠️             ║"
+          echo "╚═══════════════════════════════════════════════════════════════╝"
+      - name: "🔐 Configure AWS Credentials"
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: "🔑 Login to Amazon ECR"
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: "☸️ Update Kubeconfig"
+        run: aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
+      - name: "⚓ Setup Helm"
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+      - name: "🚀 Deploy to PRODUCTION"
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ needs.build.outputs.short_sha }}
+        run: |
+          helm upgrade --install ${{ env.SERVICE_NAME }} ${{ env.HELM_CHART_PATH }} \
+            --namespace prod --create-namespace \
+            -f helm-charts/environments/prod/${{ env.SERVICE_NAME }}.yaml \
+            --set web.image.repository=$ECR_REGISTRY/${{ secrets.ECR_WEB_REPOSITORY }} \
+            --set web.image.tag=$IMAGE_TAG \
+            --wait --timeout 10m
+      - name: "✅ Verify Deployment"
+        run: kubectl rollout status deployment/web-app-depl -n prod --timeout=300s
+      - name: "📝 Production Summary"
+        run: |
+          echo "## 🎉 Frontend Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | ${{ env.SERVICE_NAME }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Image Tag | ${{ needs.build.outputs.short_sha }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| URL | https://www.yourdomain.com |" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,19 @@
+# =============================================================================
+# INGRESS ALB - PRODUCTION OVERRIDE (Domain-specific only)
+# =============================================================================
+# Base values.yaml is already production-configured.
+# Use this only to override domain-specific values.
+# =============================================================================
+ingress:
+  annotations:
+    loadBalancerName: prod-ecommerce-alb
+    certificateArn: arn:aws:acm:us-east-1:855561838951:certificate/YOUR-PROD-CERT-ID
+    accessLogsBucket: prod-ecommerce-alb-logs
+    accessLogsPrefix: alb/prod
+    wafArn: arn:aws:wafv2:us-east-1:855561838951:regional/webacl/YOUR-WAF-ACL/YOUR-WAF-ID
+    tags: Environment=prod,Project=ecommerce,CostCenter=production
+  hosts:
+    frontend:
+      host: www.yourdomain.com
+    api:
+      host: api.yourdomain.com

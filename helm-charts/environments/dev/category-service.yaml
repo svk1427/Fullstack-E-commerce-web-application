@@ -1,0 +1,22 @@
+# =============================================================================
+# CATEGORY SERVICE - DEVELOPMENT OVERRIDE VALUES
+# =============================================================================
+# Usage: helm upgrade category-service ./category-service -f environments/dev/category-service.yaml
+# =============================================================================
+category:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: false
+  pdb:
+    enabled: false
+  affinity:
+    enabled: false
+config:
+  LOG_LEVEL: DEBUG

@@ -1,0 +1,26 @@
+# =============================================================================
+# NOTIFICATION SERVICE - QA OVERRIDE VALUES
+# =============================================================================
+# Usage: helm upgrade notification-service ./notification-service -f environments/qa/notification-service.yaml
+# =============================================================================
+notification:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 150m
+      memory: 192Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+  pdb:
+    enabled: true
+    minAvailable: 1
+  affinity:
+    enabled: true
+config:
+  LOG_LEVEL: INFO
+  SPRING_PROFILES_ACTIVE: qa

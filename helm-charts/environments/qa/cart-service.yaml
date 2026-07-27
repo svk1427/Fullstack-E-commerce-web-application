@@ -1,0 +1,25 @@
+# =============================================================================
+# CART SERVICE - QA OVERRIDE VALUES
+# =============================================================================
+# Usage: helm upgrade cart-service ./cart-service -f environments/qa/cart-service.yaml
+# =============================================================================
+cart:
+  replicas: 2
+  resources:
+    requests:
+      cpu: 200m
+      memory: 384Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+  pdb:
+    enabled: true
+    minAvailable: 1
+  affinity:
+    enabled: true
+config:
+  LOG_LEVEL: INFO

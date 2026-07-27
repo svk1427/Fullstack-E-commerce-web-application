@@ -1,0 +1,123 @@
+# =============================================================================
+# REUSABLE WORKFLOW - JAVA MICROSERVICE CI/CD
+# =============================================================================
+# Called by individual service workflows
+# Handles: Build, Test, Docker Push, Helm Deploy
+# =============================================================================
+name: "♻️ Reusable Java Service CI/CD"
+on:
+  workflow_call:
+    inputs:
+      service_name:
+        required: true
+        type: string
+        description: 'Name of the service (e.g., auth-service)'
+      service_path:
+        required: true
+        type: string
+        description: 'Path to service code (e.g., microservice-backend/auth-service)'
+      helm_chart_path:
+        required: true
+        type: string
+        description: 'Path to Helm chart (e.g., helm-charts/auth-service)'
+      helm_value_key:
+        required: true
+        type: string
+        description: 'Helm values key (e.g., auth for auth.image)'
+      ecr_repository_secret:
+        required: true
+        type: string
+        description: 'Name of ECR repository secret'
+      environment:
+        required: false
+        type: string
+        default: 'dev'
+        description: 'Target environment'
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+      EKS_CLUSTER:
+        required: true
+      ECR_REPOSITORY:
+        required: true
+      MONGODB_URI:
+        required: false
+env:
+  AWS_REGION: us-east-1
+  JAVA_VERSION: '17'
+  HELM_VERSION: '3.14.0'
+jobs:
+  build:
+    name: "🔨 Build & Push"
+    runs-on: ubuntu-latest
+    outputs:
+      short_sha: ${{ steps.vars.outputs.short_sha }}
+    steps:
+      - name: "📥 Checkout Code"
+        uses: actions/checkout@v4
+      - name: "📋 Set Variables"
+        id: vars
+        run: echo "short_sha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+      - name: "☕ Setup Java"
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: "🔍 Build & Test"
+        working-directory: ${{ inputs.service_path }}
+        run: |
+          chmod +x mvnw
+          ./mvnw clean verify -B
+      - name: "🔐 Configure AWS"
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: "🔑 Login to ECR"
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: "🐳 Build & Push Image"
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ steps.vars.outputs.short_sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG ${{ inputs.service_path }}
+          docker push $ECR_REGISTRY/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
+  deploy:
+    name: "🚀 Deploy to ${{ inputs.environment }}"
+    needs: build
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: "📥 Checkout Code"
+        uses: actions/checkout@v4
+      - name: "🔐 Configure AWS"
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: "🔑 Login to ECR"
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: "☸️ Update Kubeconfig"
+        run: aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
+      - name: "⚓ Setup Helm"
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+      - name: "🚀 Deploy"
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ needs.build.outputs.short_sha }}
+        run: |
+          helm upgrade --install ${{ inputs.service_name }} ${{ inputs.helm_chart_path }} \
+            --namespace ${{ inputs.environment }} --create-namespace \
+            -f helm-charts/environments/${{ inputs.environment }}/${{ inputs.service_name }}.yaml \
+            --set ${{ inputs.helm_value_key }}.image.repository=$ECR_REGISTRY/${{ secrets.ECR_REPOSITORY }} \
+            --set ${{ inputs.helm_value_key }}.image.tag=$IMAGE_TAG \
+            --wait --timeout 5m

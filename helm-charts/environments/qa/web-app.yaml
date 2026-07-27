@@ -1,0 +1,25 @@
+# =============================================================================
+# WEB APP (FRONTEND) - QA OVERRIDE VALUES
+# =============================================================================
+# Usage: helm upgrade web-app ./web-app -f environments/qa/web-app.yaml
+# =============================================================================
+web:
+  replicas: 2
+  resources:
+    requests:
+      cpu: 75m
+      memory: 96Mi
+    limits:
+      cpu: 300m
+      memory: 192Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+  pdb:
+    enabled: true
+    minAvailable: 1
+  affinity:
+    enabled: true
+config:
+  VITE_API_GATEWAY_URL: https://qa-api.yourdomain.com

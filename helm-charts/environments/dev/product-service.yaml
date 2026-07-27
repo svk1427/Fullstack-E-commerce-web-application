@@ -1,0 +1,22 @@
+# =============================================================================
+# PRODUCT SERVICE - DEVELOPMENT OVERRIDE VALUES
+# =============================================================================
+# Usage: helm upgrade product-service ./product-service -f environments/dev/product-service.yaml
+# =============================================================================
+product:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: false
+  pdb:
+    enabled: false
+  affinity:
+    enabled: false
+config:
+  LOG_LEVEL: DEBUG

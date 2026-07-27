@@ -1,0 +1,25 @@
+# =============================================================================
+# USER SERVICE - QA OVERRIDE VALUES
+# =============================================================================
+# Usage: helm upgrade user-service ./user-service -f environments/qa/user-service.yaml
+# =============================================================================
+user:
+  replicas: 2
+  resources:
+    requests:
+      cpu: 200m
+      memory: 384Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+  pdb:
+    enabled: true
+    minAvailable: 1
+  affinity:
+    enabled: true
+config:
+  LOG_LEVEL: INFO

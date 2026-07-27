@@ -1,55 +1,258 @@
-name: CI/CD Pipeline for Api Gateway
+# =============================================================================
+# API GATEWAY - ENTERPRISE CI/CD PIPELINE
+# =============================================================================
+# Triggers: Push to main, PR to main, Manual dispatch
+# Environments: dev → qa → prod (with approvals)
+# =============================================================================
+name: "🚀 API Gateway CI/CD"
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - qa
+          - prod
+      skip_tests:
+        description: 'Skip tests (emergency only)'
+        required: false
+        default: false
+        type: boolean
   pull_request:
-    branches:
-      - main
+    branches: [main, develop]
     paths:
       - 'microservice-backend/api-gateway/**'
       - 'helm-charts/api-gateway/**'
+      - '.github/workflows/ci-cd-gateway.yml'
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - 'microservice-backend/api-gateway/**'
       - 'helm-charts/api-gateway/**'
+# =============================================================================
+# ENVIRONMENT VARIABLES
+# =============================================================================
+env:
+  SERVICE_NAME: api-gateway
+  SERVICE_PATH: microservice-backend/api-gateway
+  HELM_CHART_PATH: helm-charts/api-gateway
+  JAVA_VERSION: '17'
+  HELM_VERSION: '3.14.0'
+  AWS_REGION: us-east-1
+# =============================================================================
+# JOBS
+# =============================================================================
 jobs:
-  build-and-deploy:
+  # ---------------------------------------------------------------------------
+  # JOB 1: BUILD & TEST
+  # ---------------------------------------------------------------------------
+  build:
+    name: "🔨 Build & Test"
     runs-on: ubuntu-latest
-    environment: dev
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
+      short_sha: ${{ steps.vars.outputs.short_sha }}
     steps:
-      - name: Checkout code
+      - name: "📥 Checkout Code"
         uses: actions/checkout@v4
-      - name: Set up Java
-        uses: actions/setup-java@v3
         with:
-          java-version: '17'
+          fetch-depth: 0
+      - name: "📋 Set Variables"
+        id: vars
+        run: |
+          echo "short_sha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+          echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+      - name: "☕ Setup Java ${{ env.JAVA_VERSION }}"
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
+          cache: 'maven'
+      - name: "🔍 Run Tests"
+        if: ${{ !inputs.skip_tests }}
+        working-directory: ${{ env.SERVICE_PATH }}
+        run: |
+          chmod +x mvnw
+          ./mvnw clean verify -B
+      - name: "📊 Upload Test Results"
+        if: always() && !inputs.skip_tests
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ env.SERVICE_NAME }}
+          path: ${{ env.SERVICE_PATH }}/target/surefire-reports/
+      - name: "🔐 Configure AWS Credentials"
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-      - name: Login to Amazon ECR
+          aws-region: ${{ env.AWS_REGION }}
+      - name: "🔑 Login to Amazon ECR"
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
-      - name: Build, tag, and push image to Amazon ECR
-        id: build-image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker build -t $ECR_REGISTRY/${{ secrets.ECR_GATEWAY_REPOSITORY }}:$IMAGE_TAG microservice-backend/api-gateway
-          docker push $ECR_REGISTRY/${{ secrets.ECR_GATEWAY_REPOSITORY }}:$IMAGE_TAG
-      - name: Update Kubeconfig
-        run: aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER }} --region ${{ secrets.AWS_REGION }}
-      - name: Install Helm
-        uses: azure/setup-helm@v1
+      - name: "🏷️ Docker Metadata"
+        id: meta
+        uses: docker/metadata-action@v5
         with:
-          version: v3.12.0
-      - name: Deploy Helm Chart
+          images: ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_GATEWAY_REPOSITORY }}
+          tags: |
+            type=sha,prefix=,format=short
+            type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
+      - name: "🐳 Build & Push Docker Image"
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ env.SERVICE_PATH }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+      - name: "📝 Build Summary"
+        run: |
+          echo "## 🎉 Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | ${{ env.SERVICE_NAME }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Image Tag | ${{ steps.vars.outputs.short_sha }} |" >> $GITHUB_STEP_SUMMARY
+  # ---------------------------------------------------------------------------
+  # JOB 2: DEPLOY TO DEV (Auto on push to main)
+  # ---------------------------------------------------------------------------
+  deploy-dev:
+    name: "🚀 Deploy to DEV"
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'dev')
+    environment:
+      name: dev
+      url: https://dev-api.yourdomain.com
+    steps:
+      - name: "📥 Checkout Code"
+        uses: actions/checkout@v4
+      - name: "🔐 Configure AWS Credentials"
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: "🔑 Login to Amazon ECR"
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: "☸️ Update Kubeconfig"
+        run: aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
+      - name: "⚓ Setup Helm"
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+      - name: "🚀 Deploy to DEV"
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: helm upgrade --install api-gateway helm-charts/api-gateway --set gateway.image=$ECR_REGISTRY/${{ secrets.ECR_GATEWAY_REPOSITORY }}:$IMAGE_TAG
+          IMAGE_TAG: ${{ needs.build.outputs.short_sha }}
+        run: |
+          helm upgrade --install ${{ env.SERVICE_NAME }} ${{ env.HELM_CHART_PATH }} \
+            --namespace dev --create-namespace \
+            -f helm-charts/environments/dev/${{ env.SERVICE_NAME }}.yaml \
+            --set gateway.image.repository=$ECR_REGISTRY/${{ secrets.ECR_GATEWAY_REPOSITORY }} \
+            --set gateway.image.tag=$IMAGE_TAG \
+            --wait --timeout 5m
+      - name: "✅ Verify Deployment"
+        run: |
+          kubectl rollout status deployment/gateway-depl -n dev --timeout=300s
+          kubectl get pods -n dev -l app=gateway
+  # ---------------------------------------------------------------------------
+  # JOB 3: DEPLOY TO QA (Manual with approval)
+  # ---------------------------------------------------------------------------
+  deploy-qa:
+    name: "🧪 Deploy to QA"
+    needs: [build, deploy-dev]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'qa'
+    environment:
+      name: qa
+      url: https://qa-api.yourdomain.com
+    steps:
+      - name: "📥 Checkout Code"
+        uses: actions/checkout@v4
+      - name: "🔐 Configure AWS Credentials"
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: "🔑 Login to Amazon ECR"
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: "☸️ Update Kubeconfig"
+        run: aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
+      - name: "⚓ Setup Helm"
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+      - name: "🚀 Deploy to QA"
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ needs.build.outputs.short_sha }}
+        run: |
+          helm upgrade --install ${{ env.SERVICE_NAME }} ${{ env.HELM_CHART_PATH }} \
+            --namespace qa --create-namespace \
+            -f helm-charts/environments/qa/${{ env.SERVICE_NAME }}.yaml \
+            --set gateway.image.repository=$ECR_REGISTRY/${{ secrets.ECR_GATEWAY_REPOSITORY }} \
+            --set gateway.image.tag=$IMAGE_TAG \
+            --wait --timeout 5m
+  # ---------------------------------------------------------------------------
+  # JOB 4: DEPLOY TO PRODUCTION (Manual with approval)
+  # ---------------------------------------------------------------------------
+  deploy-prod:
+    name: "🏭 Deploy to PRODUCTION"
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'prod'
+    environment:
+      name: production
+      url: https://api.yourdomain.com
+    steps:
+      - name: "📥 Checkout Code"
+        uses: actions/checkout@v4
+      - name: "⚠️ Production Warning"
+        run: |
+          echo "╔═══════════════════════════════════════════════════════════════╗"
+          echo "║           ⚠️  PRODUCTION DEPLOYMENT IN PROGRESS ⚠️             ║"
+          echo "╚═══════════════════════════════════════════════════════════════╝"
+      - name: "🔐 Configure AWS Credentials (PROD)"
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: "🔑 Login to Amazon ECR"
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: "☸️ Update Kubeconfig"
+        run: aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
+      - name: "⚓ Setup Helm"
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+      - name: "🚀 Deploy to PRODUCTION"
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ needs.build.outputs.short_sha }}
+        run: |
+          helm upgrade --install ${{ env.SERVICE_NAME }} ${{ env.HELM_CHART_PATH }} \
+            --namespace prod --create-namespace \
+            --set gateway.image.repository=$ECR_REGISTRY/${{ secrets.ECR_GATEWAY_REPOSITORY }} \
+            --set gateway.image.tag=$IMAGE_TAG \
+            --wait --timeout 10m
+      - name: "✅ Verify Production Deployment"
+        run: |
+          kubectl rollout status deployment/gateway-depl -n prod --timeout=300s
+          echo "✅ Production deployment successful!"
+      - name: "📝 Production Summary"
+        run: |
+          echo "## 🎉 Production Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | ${{ env.SERVICE_NAME }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Image Tag | ${{ needs.build.outputs.short_sha }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Deployed By | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY

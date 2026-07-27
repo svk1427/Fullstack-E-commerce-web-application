@@ -1,0 +1,25 @@
+# =============================================================================
+# AUTH SERVICE - DEVELOPMENT OVERRIDE VALUES
+# =============================================================================
+# Usage: helm upgrade auth-service ./auth-service -f environments/dev/auth-service.yaml
+# =============================================================================
+auth:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: false
+  pdb:
+    enabled: false
+  affinity:
+    enabled: false
+config:
+  LOG_LEVEL: DEBUG
+  # Development JWT settings (shorter expiry for testing)
+
+  JWT_EXPIRATION_MS: "900000" # 15 minutes for dev

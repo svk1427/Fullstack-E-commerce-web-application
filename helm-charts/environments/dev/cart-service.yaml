@@ -1,0 +1,22 @@
+# =============================================================================
+# CART SERVICE - DEVELOPMENT OVERRIDE VALUES
+# =============================================================================
+# Usage: helm upgrade cart-service ./cart-service -f environments/dev/cart-service.yaml
+# =============================================================================
+cart:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: false
+  pdb:
+    enabled: false
+  affinity:
+    enabled: false
+config:
+  LOG_LEVEL: DEBUG

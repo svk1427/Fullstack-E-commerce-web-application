@@ -1,0 +1,25 @@
+# =============================================================================
+# SERVICE REGISTRY (EUREKA) - QA OVERRIDE VALUES
+# =============================================================================
+# Usage: helm upgrade service-registry ./service-registry -f environments/qa/service-registry.yaml
+# =============================================================================
+registry:
+  replicas: 2
+  resources:
+    requests:
+      cpu: 200m
+      memory: 384Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 3
+  pdb:
+    enabled: true
+    minAvailable: 1
+  affinity:
+    enabled: true
+config:
+  LOG_LEVEL: INFO

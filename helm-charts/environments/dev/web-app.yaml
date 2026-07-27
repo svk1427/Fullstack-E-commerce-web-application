@@ -1,0 +1,22 @@
+# =============================================================================
+# WEB APP (FRONTEND) - DEVELOPMENT OVERRIDE VALUES
+# =============================================================================
+# Usage: helm upgrade web-app ./web-app -f environments/dev/web-app.yaml
+# =============================================================================
+web:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+  autoscaling:
+    enabled: false
+  pdb:
+    enabled: false
+  affinity:
+    enabled: false
+config:
+  VITE_API_GATEWAY_URL: http://localhost:8080

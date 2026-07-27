@@ -1,0 +1,53 @@
+# =============================================================================
+# INGRESS ALB - QA OVERRIDE VALUES
+# =============================================================================
+# Usage: helm upgrade ingress-alb ./ingress-alb -f environments/qa/ingress-alb.yaml
+# =============================================================================
+ingress:
+  name: qa-alb-ingress
+  ingressClassName: alb
+  # QA ALB settings - moderate security
+  annotations:
+    scheme: internet-facing
+    targetType: ip
+    loadBalancerName: qa-ecommerce-alb
+    # SSL Configuration
+    listenPorts: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    certificateArn: arn:aws:acm:us-east-1:855561838951:certificate/qa-certificate-id
+    sslPolicy: ELBSecurityPolicy-TLS13-1-2-2021-06
+    sslRedirect: "true"
+    # Health Checks
+    healthcheckPath: /actuator/health
+    healthcheckPort: traffic-port
+    healthcheckProtocol: HTTP
+    healthcheckIntervalSeconds: "20"
+    healthcheckTimeoutSeconds: "5"
+    healthyThresholdCount: "2"
+    unhealthyThresholdCount: "3"
+    # Target Configuration
+    targetGroupAttributes: stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=3600
+    # ALB Settings
+    idleTimeout: "90"
+    # Security features (some enabled for QA testing)
+    deletionProtection: "false" # Allow QA teardown
+    accessLogsEnabled: "true"
+    accessLogsBucket: qa-ecommerce-alb-logs
+    accessLogsPrefix: alb/qa
+    wafArn: "" # No WAF in QA
+    shieldEnabled: "false"
+    # Tags
+    tags: Environment=qa,Project=ecommerce
+  # QA hosts
+  hosts:
+    frontend:
+      host: qa.yourdomain.com
+      path: /
+      pathType: Prefix
+      serviceName: webapp-svc
+      servicePort: 80
+    api:
+      host: qa-api.yourdomain.com
+      path: /
+      pathType: Prefix
+      serviceName: apigateway-svc
+      servicePort: 8080

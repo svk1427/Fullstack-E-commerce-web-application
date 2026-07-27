@@ -1,0 +1,23 @@
+# =============================================================================
+# NOTIFICATION SERVICE - DEVELOPMENT OVERRIDE VALUES
+# =============================================================================
+# Usage: helm upgrade notification-service ./notification-service -f environments/dev/notification-service.yaml
+# =============================================================================
+notification:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  autoscaling:
+    enabled: false
+  pdb:
+    enabled: false
+  affinity:
+    enabled: false
+config:
+  LOG_LEVEL: DEBUG
+  SPRING_PROFILES_ACTIVE: dev

@@ -1,0 +1,51 @@
+# =============================================================================
+# INGRESS ALB - DEVELOPMENT OVERRIDE VALUES
+# =============================================================================
+# Usage: helm upgrade ingress-alb ./ingress-alb -f environments/dev/ingress-alb.yaml
+# =============================================================================
+ingress:
+  name: dev-alb-ingress
+  ingressClassName: alb
+  # Development ALB settings - minimal resources
+  annotations:
+    scheme: internet-facing
+    targetType: ip
+    loadBalancerName: dev-ecommerce-alb
+    # SSL Configuration
+    listenPorts: '[{"HTTP": 80}]' # HTTP only for dev
+    certificateArn: ""
+    sslPolicy: ""
+    sslRedirect: "false"
+    # Health Checks
+    healthcheckPath: /actuator/health
+    healthcheckPort: traffic-port
+    healthcheckProtocol: HTTP
+    healthcheckIntervalSeconds: "30"
+    healthcheckTimeoutSeconds: "5"
+    healthyThresholdCount: "2"
+    unhealthyThresholdCount: "3"
+    # Target Configuration
+    targetGroupAttributes: stickiness.enabled=false
+    # Basic ALB Settings
+    idleTimeout: "60"
+    # No production features in dev
+    deletionProtection: "false"
+    accessLogsEnabled: "false"
+    wafArn: ""
+    shieldEnabled: "false"
+    # Tags
+    tags: Environment=dev,Project=ecommerce
+  # Development hosts
+  hosts:
+    frontend:
+      host: dev.yourdomain.com
+      path: /
+      pathType: Prefix
+      serviceName: webapp-svc
+      servicePort: 80
+    api:
+      host: dev-api.yourdomain.com
+      path: /
+      pathType: Prefix
+      serviceName: apigateway-svc
+      servicePort: 8080

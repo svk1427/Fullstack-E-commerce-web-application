@@ -1,0 +1,25 @@
+# =============================================================================
+# PRODUCT SERVICE - QA OVERRIDE VALUES
+# =============================================================================
+# Usage: helm upgrade product-service ./product-service -f environments/qa/product-service.yaml
+# =============================================================================
+product:
+  replicas: 2
+  resources:
+    requests:
+      cpu: 200m
+      memory: 384Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+  pdb:
+    enabled: true
+    minAvailable: 1
+  affinity:
+    enabled: true
+config:
+  LOG_LEVEL: INFO

@@ -1,0 +1,28 @@
+# =============================================================================
+# AUTH SERVICE - QA OVERRIDE VALUES
+# =============================================================================
+# Usage: helm upgrade auth-service ./auth-service -f environments/qa/auth-service.yaml
+# =============================================================================
+auth:
+  replicas: 2
+  resources:
+    requests:
+      cpu: 200m
+      memory: 384Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+  pdb:
+    enabled: true
+    minAvailable: 1
+  affinity:
+    enabled: true
+config:
+  LOG_LEVEL: INFO
+  # QA JWT settings (moderate expiry)
+
+  JWT_EXPIRATION_MS: "1800000" # 30 minutes for QA

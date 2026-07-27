@@ -1,18 +1,74 @@
+# =============================================================================
+# WEB APP (FRONTEND) - PRODUCTION VALUES
+# =============================================================================
+# React/Vite frontend served via NGINX
+# Default values are PRODUCTION-READY
+# =============================================================================
 web:
   label: web-app
-  replicas: 1
+  # ---------------------------------------------------------------------------
+  # PRODUCTION: High replicas for user-facing traffic
+  # ---------------------------------------------------------------------------
+  replicas: 3
   containerPort: 80
-  image: default
-  requests:
-    cpu: 250m
-    memory: 256Mi
-  limits:
-    cpu: 500m
-    memory: 512Mi
-  averageUtilization:
-   cpu: 60
-   memory: 60
+  # ---------------------------------------------------------------------------
+  # IMAGE CONFIGURATION
+  # ---------------------------------------------------------------------------
+  image:
+    repository: 855561838951.dkr.ecr.us-east-1.amazonaws.com/web-app
+    tag: "" # Set by CI/CD pipeline
+    pullPolicy: IfNotPresent
+  # ---------------------------------------------------------------------------
+  # PRODUCTION RESOURCES (Static files, NGINX is lightweight)
+  # ---------------------------------------------------------------------------
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  # ---------------------------------------------------------------------------
+  # HORIZONTAL POD AUTOSCALER
+  # ---------------------------------------------------------------------------
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 20
+    targetCPUUtilization: 70
+    targetMemoryUtilization: 80
+  # ---------------------------------------------------------------------------
+  # SERVICE CONFIGURATION
+  # ---------------------------------------------------------------------------
   service:
     type: ClusterIP
     port: 80
-    
+  # ---------------------------------------------------------------------------
+  # POD DISRUPTION BUDGET
+  # ---------------------------------------------------------------------------
+  pdb:
+    enabled: true
+    minAvailable: 2
+  # ---------------------------------------------------------------------------
+  # HEALTH CHECKS
+  # ---------------------------------------------------------------------------
+  healthCheck:
+    path: /
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+  # ---------------------------------------------------------------------------
+  # POD ANTI-AFFINITY
+  # ---------------------------------------------------------------------------
+  affinity:
+    enabled: true
+    topologyKey: kubernetes.io/hostname
+# -----------------------------------------------------------------------------
+# CONFIGURATION (Runtime environment)
+# -----------------------------------------------------------------------------
+config:
+  label: web-app-config-map
+  # API Gateway URL for frontend to call
+
+  VITE_API_GATEWAY_URL: https://api.yourdomain.com

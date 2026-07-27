@@ -1,0 +1,51 @@
+# =============================================================================
+# GLOBAL ENVIRONMENT CONFIGURATION
+# =============================================================================
+# This file defines environment-specific identifiers
+# Source this file or use these values in your deployment scripts
+# =============================================================================
+# -----------------------------------------------------------------------------
+# ENVIRONMENT IDENTIFICATION
+# -----------------------------------------------------------------------------
+environment:
+  name: production
+  shortName: prod
+  tier: critical
+# -----------------------------------------------------------------------------
+# AWS ACCOUNT CONFIGURATION
+# -----------------------------------------------------------------------------
+aws:
+  accountId: "855561838951"
+  accountAlias: "ecommerce-prod"
+  region: "us-east-1"
+  # ECR Repository Base
+  ecrRegistry: "855561838951.dkr.ecr.us-east-1.amazonaws.com"
+# -----------------------------------------------------------------------------
+# KUBERNETES CLUSTER
+# -----------------------------------------------------------------------------
+kubernetes:
+  clusterName: "prod-eks-cluster"
+  namespace: "prod"
+  context: "arn:aws:eks:us-east-1:855561838951:cluster/prod-eks-cluster"
+# -----------------------------------------------------------------------------
+# DEPLOYMENT VERIFICATION
+# -----------------------------------------------------------------------------
+# Before deploying, verify:
+#   1. AWS Account: aws sts get-caller-identity --query Account --output text
+#      Expected: 855561838951
+#
+#   2. EKS Cluster: kubectl config current-context
+#      Expected: arn:aws:eks:us-east-1:855561838951:cluster/prod-eks-cluster
+#
+#   3. Namespace: kubectl config view --minify -o jsonpath='{..namespace}'
+#      Expected: prod
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# RESOURCE TAGS (Applied to all AWS resources)
+# -----------------------------------------------------------------------------
+tags:
+  Environment: production
+  Project: ecommerce
+  CostCenter: production
+  ManagedBy: helm
+  Team: platform

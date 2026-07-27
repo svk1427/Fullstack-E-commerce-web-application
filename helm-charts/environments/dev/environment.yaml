@@ -1,0 +1,22 @@
+# =============================================================================
+# GLOBAL ENVIRONMENT CONFIGURATION - DEVELOPMENT
+# =============================================================================
+environment:
+  name: development
+  shortName: dev
+  tier: non-critical
+aws:
+  accountId: "123456789012" # Replace with your dev AWS account ID
+  accountAlias: "ecommerce-dev"
+  region: "us-east-1"
+  ecrRegistry: "123456789012.dkr.ecr.us-east-1.amazonaws.com"
+kubernetes:
+  clusterName: "dev-eks-cluster"
+  namespace: "dev"
+  context: "arn:aws:eks:us-east-1:123456789012:cluster/dev-eks-cluster"
+tags:
+  Environment: development
+  Project: ecommerce
+  CostCenter: development
+  ManagedBy: helm
+  Team: platform

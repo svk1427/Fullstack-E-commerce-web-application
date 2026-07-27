@@ -1,0 +1,16 @@
+# =============================================================================
+# API GATEWAY - POD DISRUPTION BUDGET
+# =============================================================================
+{{- if .Values.gateway.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ printf "%s-pdb" .Values.gateway.label }}
+  labels:
+    app: {{ .Values.gateway.label }}
+spec:
+  minAvailable: {{ .Values.gateway.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      app: {{ .Values.gateway.label }}
+{{- end }}

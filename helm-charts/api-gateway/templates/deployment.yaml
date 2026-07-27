@@ -1,24 +1,49 @@
+# =============================================================================
+# API GATEWAY - DEPLOYMENT
+# =============================================================================
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ printf "%s-depl" .Values.gateway.label }}  
+  name: {{ printf "%s-depl" .Values.gateway.label }}
   labels:
     app: {{ .Values.gateway.label }}
+    version: {{ .Values.gateway.image.tag | default "latest" | quote }}
 spec:
   replicas: {{ .Values.gateway.replicas }}
   selector:
     matchLabels:
       app: {{ .Values.gateway.label }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   template:
     metadata:
       labels:
         app: {{ .Values.gateway.label }}
     spec:
+      {{- if .Values.gateway.affinity.enabled }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - {{ .Values.gateway.label }}
+                topologyKey: {{ .Values.gateway.affinity.topologyKey }}
+      {{- end }}
       containers:
         - name: {{ printf "%s-container" .Values.gateway.label }}
-          image: {{ .Values.gateway.image }}
+          image: "{{ .Values.gateway.image.repository }}:{{ .Values.gateway.image.tag }}"
+          imagePullPolicy: {{ .Values.gateway.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.gateway.containerPort }}
+              protocol: TCP
           env:
             - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
               valueFrom:
@@ -30,10 +55,36 @@ spec:
                 configMapKeyRef:
                   name: {{ .Values.config.label }}
                   key: EUREKA_INSTANCE_HOSTNAME
+            - name: SPRING_PROFILES_ACTIVE
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.config.label }}
+                  key: SPRING_PROFILES_ACTIVE
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.config.label }}
+                  key: LOG_LEVEL
           resources:
             requests:
-              cpu: {{ .Values.gateway.requests.cpu }}
-              memory: {{ .Values.gateway.requests.memory }}
+              cpu: {{ .Values.gateway.resources.requests.cpu }}
+              memory: {{ .Values.gateway.resources.requests.memory }}
             limits:
-              cpu: {{ .Values.gateway.limits.cpu }}
-              memory: {{ .Values.gateway.limits.memory }}
+              cpu: {{ .Values.gateway.resources.limits.cpu }}
+              memory: {{ .Values.gateway.resources.limits.memory }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.gateway.healthCheck.path }}
+              port: {{ .Values.gateway.containerPort }}
+            initialDelaySeconds: {{ .Values.gateway.healthCheck.initialDelaySeconds }}
+            periodSeconds: {{ .Values.gateway.healthCheck.periodSeconds }}
+            timeoutSeconds: {{ .Values.gateway.healthCheck.timeoutSeconds }}
+            failureThreshold: {{ .Values.gateway.healthCheck.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.gateway.healthCheck.path }}
+              port: {{ .Values.gateway.containerPort }}
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3

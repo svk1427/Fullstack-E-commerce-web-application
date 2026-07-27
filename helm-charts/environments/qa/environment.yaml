@@ -1,0 +1,22 @@
+# =============================================================================
+# GLOBAL ENVIRONMENT CONFIGURATION - QA
+# =============================================================================
+environment:
+  name: qa
+  shortName: qa
+  tier: non-critical
+aws:
+  accountId: "234567890123" # Replace with your QA AWS account ID
+  accountAlias: "ecommerce-qa"
+  region: "us-east-1"
+  ecrRegistry: "234567890123.dkr.ecr.us-east-1.amazonaws.com"
+kubernetes:
+  clusterName: "qa-eks-cluster"
+  namespace: "qa"
+  context: "arn:aws:eks:us-east-1:234567890123:cluster/qa-eks-cluster"
+tags:
+  Environment: qa
+  Project: ecommerce
+  CostCenter: qa
+  ManagedBy: helm
+  Team: platform
