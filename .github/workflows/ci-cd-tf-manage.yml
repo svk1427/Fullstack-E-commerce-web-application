@@ -1,8 +1,25 @@
-name: Terraform Manage Infrastructure
-# Unified workflow for creating AND destroying AWS resources
-
-# Perfect for personal AWS accounts - full control over costs
+name: "🏗️ Terraform Infrastructure"
+# =============================================================================
+# TERRAFORM INFRASTRUCTURE MANAGEMENT
+# =============================================================================
+# Triggers:
+#   - Push to main (terraform/** changes) → Auto plan
+#   - PR to main (terraform/** changes) → Auto plan  
+#   - Manual dispatch → plan/apply/destroy
+# =============================================================================
 on:
+  # Auto-trigger on terraform changes - PLAN ONLY
+  push:
+    branches: [main]
+    paths:
+      - 'terraform/**'
+      - 'bootstrap/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'terraform/**'
+      - 'bootstrap/**'
+  # Manual trigger for apply/destroy
   workflow_dispatch:
     inputs:
       action:
@@ -27,7 +44,7 @@ on:
         type: string
         default: ''
       target:
-        description: 'Target specific resources (comma-separated, e.g., module.vpc,aws_eks_cluster.main)'
+        description: 'Target specific resources (comma-separated)'
         required: false
         type: string
         default: ''
@@ -36,162 +53,126 @@ permissions:
   contents: read
 env:
   TF_VERSION: 1.11.0
-  AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_REGION: us-east-1
   TF_LOG: WARN
   TF_INPUT: false
   TF_IN_AUTOMATION: true
 jobs:
-  validate:
-    name: Validate Inputs
+  # ---------------------------------------------------------------------------
+  # JOB: Determine Action (auto plan vs manual)
+  # ---------------------------------------------------------------------------
+  setup:
+    name: "📋 Setup"
     runs-on: ubuntu-latest
     outputs:
-      action: ${{ github.event.inputs.action }}
-      is-destructive: ${{ steps.check.outputs.is-destructive }}
+      action: ${{ steps.determine.outputs.action }}
+      is_manual: ${{ steps.determine.outputs.is_manual }}
     steps:
-      - name: Check Confirmation
-        id: check
-        run: "ACTION=\"${{ github.event.inputs.action }}\"\nCONFIRM=\"${{ github.event.inputs.confirm }}\"\nLOCK_ID=\"${{ github.event.inputs.lock_id }}\"\n\n# Mark destructive actions\nif [[ \"$ACTION\" == \"apply\" || \"$ACTION\" == \"destroy\" ]]; then\n  echo \"is-destructive=true\" >> $GITHUB_OUTPUT\n  \n  if [[ \"$CONFIRM\" != \"yes\" ]]; then\n    echo \"::error::⚠️ DESTRUCTIVE ACTION REQUIRES CONFIRMATION!\"\n    echo \"::error::You selected '$ACTION' but didn't type 'yes' to confirm.\"\n    echo \"::error::Please re-run and type 'yes' in the confirm field.\"\n    exit 1\n  fi\n  echo \"✅ Confirmation received for $ACTION\"\nelif [[ \"$ACTION\" == \"force-unlock\" ]]; then\n  echo \"is-destructive=true\" >> $GITHUB_OUTPUT\n  if [[ -z \"$LOCK_ID\" ]]; then\n    echo \"::error::⚠️ LOCK ID REQUIRED!\"\n    echo \"::error::Please provide the Lock ID from the error message.\"\n    exit 1\n  fi\n  echo \"✅ Force-unlock requested for lock: $LOCK_ID\"\nelse\n  echo \"is-destructive=false\" >> $GITHUB_OUTPUT\n  echo \"✅ Running $ACTION (no confirmation needed)\"\nfi\n"
+      - name: "Determine Action"
+        id: determine
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "action=${{ github.event.inputs.action }}" >> $GITHUB_OUTPUT
+            echo "is_manual=true" >> $GITHUB_OUTPUT
+            echo "📝 Manual trigger: ${{ github.event.inputs.action }}"
+          else
+            echo "action=plan" >> $GITHUB_OUTPUT
+            echo "is_manual=false" >> $GITHUB_OUTPUT
+            echo "📝 Auto trigger: plan only"
+          fi
+      - name: "Validate Confirmation"
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          ACTION="${{ github.event.inputs.action }}"
+          CONFIRM="${{ github.event.inputs.confirm }}"
+
+          if [[ "$ACTION" == "apply" || "$ACTION" == "destroy" ]]; then
+            if [[ "$CONFIRM" != "yes" ]]; then
+              echo "::error::⚠️ DESTRUCTIVE ACTION REQUIRES CONFIRMATION!"
+              echo "::error::Type 'yes' in the confirm field to proceed."
+              exit 1
+            fi
+            echo "✅ Confirmation received for $ACTION"
+          fi
+  # ---------------------------------------------------------------------------
+  # JOB: Terraform
+  # ---------------------------------------------------------------------------
   terraform:
-    name: Terraform ${{ github.event.inputs.action }}
+    name: "🏗️ Terraform ${{ needs.setup.outputs.action }}"
     runs-on: ubuntu-latest
-    needs: validate
-    environment: dev
+    needs: setup
+    environment: ${{ needs.setup.outputs.action == 'apply' || needs.setup.outputs.action == 'destroy' && 'production' || 'dev' }}
     timeout-minutes: 60
     defaults:
       run:
         working-directory: terraform/us-east-1
     steps:
-      - name: Checkout Code
+      - name: "📥 Checkout Code"
         uses: actions/checkout@v4
-      - name: Configure AWS Credentials
+      - name: "🔐 Configure AWS Credentials"
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          role-session-name: github-actions-terraform-${{ github.event.inputs.action }}
-      - name: Setup Terraform
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: "🔧 Setup Terraform"
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
-      - name: Cache Terraform Providers
-        uses: actions/cache@v3
+      - name: "📦 Cache Terraform"
+        uses: actions/cache@v4
         with:
           path: |
             ~/.terraform.d/plugins
             .terraform
-          key: ${{ runner.os }}-terraform-${{ env.TF_VERSION }}-${{ hashFiles('terraform/us-east-1/.terraform.lock.hcl') }}
-          restore-keys: |
-            ${{ runner.os }}-terraform-${{ env.TF_VERSION }}-
-            ${{ runner.os }}-terraform-
-      - name: Terraform Init
+          key: terraform-${{ env.TF_VERSION }}-${{ hashFiles('**/.terraform.lock.hcl') }}
+      - name: "🚀 Terraform Init"
         run: |
           terraform init \
             -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
             -backend-config="key=terraform.tfstate" \
-            -backend-config="region=${{ secrets.AWS_REGION }}" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
             -backend-config="dynamodb_table=${{ secrets.TF_LOCK_TABLE }}" \
-            -upgrade=false \
-            -no-color
-      - name: Terraform Validate
-        run: terraform validate -no-color
-      - name: Terraform Plan
-        # ============= PLAN ONLY =============
-
-        if: github.event.inputs.action == 'plan'
+            -upgrade=false
+      - name: "✅ Terraform Validate"
+        run: terraform validate
+      - name: "📋 Terraform Plan"
+        if: needs.setup.outputs.action == 'plan'
         run: |
-          TARGET_ARGS=""
-          if [[ -n "${{ github.event.inputs.target }}" ]]; then
-            IFS=',' read -ra TARGETS <<< "${{ github.event.inputs.target }}"
-            for target in "${TARGETS[@]}"; do
-              TARGET_ARGS="$TARGET_ARGS -target=$target"
-            done
-          fi
-          terraform plan -no-color -parallelism=10 $TARGET_ARGS
-      - name: Terraform Plan Destroy
-        # ============= PLAN DESTROY =============
-
-        if: github.event.inputs.action == 'plan-destroy'
+          echo "🔍 Running Terraform Plan..."
+          terraform plan -no-color -out=tfplan
+      - name: "📋 Terraform Plan (Destroy)"
+        if: needs.setup.outputs.action == 'plan-destroy'
         run: |
-          echo "⚠️ DESTROY PLAN - This shows what WILL BE DELETED"
-          TARGET_ARGS=""
-          if [[ -n "${{ github.event.inputs.target }}" ]]; then
-            IFS=',' read -ra TARGETS <<< "${{ github.event.inputs.target }}"
-            for target in "${TARGETS[@]}"; do
-              TARGET_ARGS="$TARGET_ARGS -target=$target"
-            done
-          fi
-          terraform plan -destroy -no-color -parallelism=10 $TARGET_ARGS
-      - name: Terraform Apply
-        # ============= APPLY =============
-
-        if: github.event.inputs.action == 'apply'
+          echo "⚠️ DESTROY PLAN - Shows what will be deleted"
+          terraform plan -destroy -no-color
+      - name: "🚀 Terraform Apply"
+        if: needs.setup.outputs.action == 'apply'
         run: |
-          echo "🚀 APPLYING TERRAFORM CHANGES..."
-          TARGET_ARGS=""
-          if [[ -n "${{ github.event.inputs.target }}" ]]; then
-            IFS=',' read -ra TARGETS <<< "${{ github.event.inputs.target }}"
-            for target in "${TARGETS[@]}"; do
-              TARGET_ARGS="$TARGET_ARGS -target=$target"
-            done
-          fi
-          terraform apply -auto-approve -no-color -parallelism=10 $TARGET_ARGS
-      - name: Export Outputs (Apply)
-        if: github.event.inputs.action == 'apply'
-        run: terraform output -json > outputs.json
-        continue-on-error: true
-      - name: Upload Outputs
-        if: github.event.inputs.action == 'apply'
-        uses: actions/upload-artifact@v4
-        with:
-          name: tf-outputs-${{ github.run_id }}
-          path: terraform/us-east-1/outputs.json
-          retention-days: 30
-        continue-on-error: true
-      - name: Terraform Destroy
-        # ============= DESTROY =============
-
-        if: github.event.inputs.action == 'destroy'
+          echo "╔═══════════════════════════════════════════════════════════════╗"
+          echo "║           🚀 APPLYING TERRAFORM CHANGES                       ║"
+          echo "╚═══════════════════════════════════════════════════════════════╝"
+          terraform apply -auto-approve -no-color
+      - name: "🔥 Terraform Destroy"
+        if: needs.setup.outputs.action == 'destroy'
         run: |
-          echo "🔥 DESTROYING TERRAFORM RESOURCES..."
-          echo "⚠️ This action is IRREVERSIBLE!"
-          TARGET_ARGS=""
-          if [[ -n "${{ github.event.inputs.target }}" ]]; then
-            IFS=',' read -ra TARGETS <<< "${{ github.event.inputs.target }}"
-            for target in "${TARGETS[@]}"; do
-              TARGET_ARGS="$TARGET_ARGS -target=$target"
-            done
-          fi
-          terraform destroy -auto-approve -no-color -parallelism=10 $TARGET_ARGS
-      - name: Terraform Force Unlock
-        # ============= FORCE UNLOCK =============
-
-        if: github.event.inputs.action == 'force-unlock'
+          echo "╔═══════════════════════════════════════════════════════════════╗"
+          echo "║           🔥 DESTROYING TERRAFORM RESOURCES                   ║"
+          echo "║           ⚠️  THIS IS IRREVERSIBLE!                           ║"
+          echo "╚═══════════════════════════════════════════════════════════════╝"
+          terraform destroy -auto-approve -no-color
+      - name: "🔓 Force Unlock"
+        if: needs.setup.outputs.action == 'force-unlock'
         run: |
-          echo "🔓 FORCE UNLOCKING TERRAFORM STATE..."
-          echo "Lock ID: ${{ github.event.inputs.lock_id }}"
+          echo "🔓 Releasing state lock: ${{ github.event.inputs.lock_id }}"
           terraform force-unlock -force ${{ github.event.inputs.lock_id }}
-          echo "✅ State lock released successfully"
-      - name: Generate Summary
-        # ============= SUMMARY =============
-
+      - name: "📝 Summary"
         if: always()
         run: |
-          ACTION="${{ github.event.inputs.action }}"
-          echo "## Terraform $ACTION Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## 🏗️ Terraform Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Action | $ACTION |" >> $GITHUB_STEP_SUMMARY
-          echo "| Region | ${{ secrets.AWS_REGION }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Target | ${{ github.event.inputs.target || 'All resources' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Triggered by | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Run ID | ${{ github.run_id }} |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          if [[ "$ACTION" == "destroy" ]]; then
-            echo "### 💰 Cost Savings" >> $GITHUB_STEP_SUMMARY
-            echo "Resources have been destroyed. Your AWS bill will reflect reduced charges." >> $GITHUB_STEP_SUMMARY
-          elif [[ "$ACTION" == "apply" ]]; then
-            echo "### ⚠️ Remember" >> $GITHUB_STEP_SUMMARY
-            echo "Don't forget to **destroy** resources when done to avoid unnecessary charges!" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "| Action | ${{ needs.setup.outputs.action }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Trigger | ${{ github.event_name }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Actor | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
