@@ -1,21 +1,16 @@
-# Resource: Kubernetes Ingress Class
-resource "kubernetes_ingress_class_v1" "ingress_class_default" {
+# Data Source: Kubernetes Ingress Class (created by AWS Load Balancer Controller)
+# The ALB IngressClass is automatically created by the AWS Load Balancer Controller Helm chart
+data "kubernetes_ingress_class_v1" "ingress_class_default" {
   depends_on = [helm_release.loadbalancer_controller]
   metadata {
     name = "alb"
-    annotations = {
-      "ingressclass.kubernetes.io/is-default-class" = "true"
-    }
-  }  
-  spec {
-    controller = "ingress.k8s.aws/alb"
   }
 }
 
 # Output: ALB Ingress Class Name
 output "ingress_class_name" {
   description = "Ingress Class Name for ALB"
-  value       = kubernetes_ingress_class_v1.ingress_class_default.metadata[0].name
+  value       = data.kubernetes_ingress_class_v1.ingress_class_default.metadata[0].name
 }
 
 ## Additional Note
