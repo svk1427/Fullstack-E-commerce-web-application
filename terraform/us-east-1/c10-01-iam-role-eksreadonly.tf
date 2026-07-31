@@ -17,35 +17,38 @@ resource "aws_iam_role" "eks_readonly_role" {
       },
     ]
   })
-  inline_policy {
-    name = "eks-readonly-access-policy"
-
-    policy = jsonencode({
-      Version = "2012-10-17"
-      Statement = [
-        {
-          Action = [
-            "iam:ListRoles",
-            "ssm:GetParameter",
-            "eks:DescribeNodegroup",
-            "eks:ListNodegroups",
-            "eks:DescribeCluster",
-            "eks:ListClusters",
-            "eks:AccessKubernetesApi",
-            "eks:ListUpdates",
-            "eks:ListFargateProfiles",
-            "eks:ListIdentityProviderConfigs",
-            "eks:ListAddons",
-            "eks:DescribeAddonVersions"
-          ]
-          Effect   = "Allow"
-          Resource = "*"
-        },
-      ]
-    })
-  }
 
   tags = {
     tag-key = "${local.name}-eks-readonly-role"
   }
+}
+
+# Resource: AWS IAM Role Policy - EKS Read-Only Access
+resource "aws_iam_role_policy" "eks_readonly_access_policy" {
+  name = "eks-readonly-access-policy"
+  role = aws_iam_role.eks_readonly_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = [
+          "iam:ListRoles",
+          "ssm:GetParameter",
+          "eks:DescribeNodegroup",
+          "eks:ListNodegroups",
+          "eks:DescribeCluster",
+          "eks:ListClusters",
+          "eks:AccessKubernetesApi",
+          "eks:ListUpdates",
+          "eks:ListFargateProfiles",
+          "eks:ListIdentityProviderConfigs",
+          "eks:ListAddons",
+          "eks:DescribeAddonVersions"
+        ]
+        Effect   = "Allow"
+        Resource = "*"
+      },
+    ]
+  })
 }
