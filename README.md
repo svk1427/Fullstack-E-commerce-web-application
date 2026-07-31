@@ -609,3 +609,42 @@ then now i can able to get the kubectl get nodes command
 10. Web App          → Frontend
 11. Ingress ALB      → Load balancer routing
 
+auth pods in pending state due to insufficient cpu
+
+need to check the pod describe status and do the helm commands frm bastion host
+
+# Check the release status
+helm status service-registry -n ecommerce
+
+# Rollback to previous version (or initial state)
+helm rollback service-registry 0 -n ecommerce
+
+# Or for auth-service
+helm rollback auth-service 0 -n ecommerce
+
+# Delete the stuck release
+helm uninstall service-registry -n ecommerce --no-hooks
+
+# Or if that doesn't work, delete with kubectl
+kubectl delete secret -l owner=helm,name=service-registry -n ecommerce
+
+# Then re-run the CI/CD workflow
+
+
+# Check what's happening
+helm list -n ecommerce -a
+
+# Check for pending operations
+kubectl get all -n ecommerce
+
+# Check pods status
+kubectl get pods -n ecommerce
+
+# Clean up all stuck releases in ecommerce namespace
+for release in $(helm list -n ecommerce -a --pending -q); do
+  echo "Rolling back $release..."
+  helm rollback $release 0 -n ecommerce || helm uninstall $release -n ecommerce --no-hooks
+done
+
+# Verify
+helm list -n ecommerce -a
