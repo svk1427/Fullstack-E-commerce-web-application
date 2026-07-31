@@ -571,6 +571,10 @@ config:
 
 manual steps I have done
 
+before we deploy the helm charts and required k8s config
+during the aws resource creation we need to create kubectl
+awscli v2, helm etc... required services on bastion host
+
 # Download kubectl
 curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
 
@@ -648,3 +652,48 @@ done
 
 # Verify
 helm list -n ecommerce -a
+
+below commands we need to run when pods getting the createconfigmaperror
+
+# Delete existing auth deployment and HPA
+kubectl delete hpa auth-hpa -n ecommerce --ignore-not-found
+kubectl delete deployment auth-depl -n ecommerce --ignore-not-found
+kubectl delete pods -l app=auth -n ecommerce --force --grace-period=0
+
+# Delete stuck helm release
+helm uninstall auth-service -n ecommerce --no-hooks 2>/dev/null || true
+kubectl delete secret -l owner=helm,name=auth-service -n ecommerce --ignore-not-found
+
+# Verify cleanup
+kubectl get all -n ecommerce
+helm list -n ecommerce -a
+
+# Clean up auth resources
+helm uninstall auth-service -n ecommerce --no-hooks 2>/dev/null || true
+kubectl delete deployment auth-depl -n ecommerce --ignore-not-found
+kubectl delete pods -l app=auth -n ecommerce --force --grace-period=0
+kubectl delete configmap auth-config-map -n ecommerce --ignore-not-found
+kubectl delete secret auth-secret -n ecommerce --ignore-not-found
+
+# Verify configmaps exist
+kubectl get configmap -n ecommerce
+kubectl get secret -n ecommerce
+
+# Check if namespace exists
+kubectl get namespace ecommerce
+
+
+the error we got in auth service related to mongodb secret mismatch 
+
+pod showing the below status
+
+Back-off restarting failed container auth-container in pod auth-depl-645f944444-cz7xf_ecommerce(0ea8287d-3ba9-4398-b2c4-d9923130ad4a) and status is crashbacklooppff but it was an application mongodb conn issue
+
+when we dont have db conn from the app pod, we can see the above
+error in pod events but pod staus is showing crashbackloopoff
+
+when we are missing some required env values/secrets in configmaps or secrets we getting the  pod status below
+
+gateway-depl-7b598bfbc5-c6r8p 0/1 CreateContainerConfigError 0 52s
+
+in events - Error some secret_name cant find
