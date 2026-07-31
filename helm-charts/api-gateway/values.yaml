@@ -7,11 +7,13 @@
 gateway:
   label: gateway
   # ---------------------------------------------------------------------------
-  # PRODUCTION: High Availability with 3 replicas
+
+  # Replicas - Reduced for dev/small clusters
   # ---------------------------------------------------------------------------
-  replicas: 3
+  replicas: 1
   containerPort: 8080
   # ---------------------------------------------------------------------------
+
   # IMAGE CONFIGURATION
   # ---------------------------------------------------------------------------
   image:
@@ -19,37 +21,42 @@ gateway:
     tag: "" # Set by CI/CD pipeline
     pullPolicy: IfNotPresent
   # ---------------------------------------------------------------------------
-  # PRODUCTION RESOURCES - Optimized for performance
+
+  # RESOURCES - Reduced for t3.medium nodes
   # ---------------------------------------------------------------------------
   resources:
     requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
       cpu: 500m
       memory: 512Mi
-    limits:
-      cpu: 2000m
-      memory: 2Gi
   # ---------------------------------------------------------------------------
+
   # HORIZONTAL POD AUTOSCALER
   # ---------------------------------------------------------------------------
   autoscaling:
     enabled: true
-    minReplicas: 3
-    maxReplicas: 10
+    minReplicas: 1
+    maxReplicas: 3
     targetCPUUtilization: 70
     targetMemoryUtilization: 80
   # ---------------------------------------------------------------------------
+
   # SERVICE CONFIGURATION
   # ---------------------------------------------------------------------------
   service:
     type: ClusterIP
     port: 80
   # ---------------------------------------------------------------------------
+
   # POD DISRUPTION BUDGET - High Availability
   # ---------------------------------------------------------------------------
   pdb:
     enabled: true
     minAvailable: 2
   # ---------------------------------------------------------------------------
+
   # HEALTH CHECKS
   # ---------------------------------------------------------------------------
   healthCheck:
@@ -59,12 +66,14 @@ gateway:
     timeoutSeconds: 5
     failureThreshold: 3
   # ---------------------------------------------------------------------------
+
   # POD ANTI-AFFINITY - Spread across nodes
   # ---------------------------------------------------------------------------
   affinity:
     enabled: true
     topologyKey: kubernetes.io/hostname
 # -----------------------------------------------------------------------------
+
 # CONFIGURATION
 # -----------------------------------------------------------------------------
 config:
@@ -74,6 +83,7 @@ config:
   EUREKA_INSTANCE_HOSTNAME: gateway-svc
   LOG_LEVEL: WARN
   # Rate Limiting
+
   RATE_LIMIT_ENABLED: "true"
   RATE_LIMIT_REQUESTS_PER_SECOND: "100"
   RATE_LIMIT_BURST_CAPACITY: "200"

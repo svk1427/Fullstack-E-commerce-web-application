@@ -7,11 +7,13 @@
 category:
   label: category
   # ---------------------------------------------------------------------------
-  # PRODUCTION: High Availability
+
+  # Replicas - Reduced for dev/small clusters
   # ---------------------------------------------------------------------------
-  replicas: 3
+  replicas: 1
   containerPort: 9000
   # ---------------------------------------------------------------------------
+
   # IMAGE CONFIGURATION
   # ---------------------------------------------------------------------------
   image:
@@ -19,37 +21,42 @@ category:
     tag: "" # Set by CI/CD pipeline
     pullPolicy: IfNotPresent
   # ---------------------------------------------------------------------------
-  # PRODUCTION RESOURCES
+
+  # RESOURCES - Reduced for t3.medium nodes
   # ---------------------------------------------------------------------------
   resources:
     requests:
-      cpu: 250m
+      cpu: 100m
       memory: 256Mi
     limits:
-      cpu: 1000m
-      memory: 1Gi
+      cpu: 500m
+      memory: 512Mi
   # ---------------------------------------------------------------------------
+
   # HORIZONTAL POD AUTOSCALER
   # ---------------------------------------------------------------------------
   autoscaling:
     enabled: true
-    minReplicas: 3
-    maxReplicas: 8
+    minReplicas: 1
+    maxReplicas: 3
     targetCPUUtilization: 70
     targetMemoryUtilization: 80
   # ---------------------------------------------------------------------------
+
   # SERVICE CONFIGURATION
   # ---------------------------------------------------------------------------
   service:
     type: ClusterIP
     port: 9000
   # ---------------------------------------------------------------------------
+
   # POD DISRUPTION BUDGET
   # ---------------------------------------------------------------------------
   pdb:
     enabled: true
     minAvailable: 2
   # ---------------------------------------------------------------------------
+
   # HEALTH CHECKS
   # ---------------------------------------------------------------------------
   healthCheck:
@@ -59,18 +66,21 @@ category:
     timeoutSeconds: 5
     failureThreshold: 3
   # ---------------------------------------------------------------------------
+
   # POD ANTI-AFFINITY
   # ---------------------------------------------------------------------------
   affinity:
     enabled: true
     topologyKey: kubernetes.io/hostname
 # -----------------------------------------------------------------------------
+
 # SECRETS
 # -----------------------------------------------------------------------------
 secret:
   label: category-secret
   SPRING_DATA_MONGODB_URI_CATEGORY: "" # Provided via GitHub Actions / External Secrets
 # -----------------------------------------------------------------------------
+
 # CONFIGURATION
 # -----------------------------------------------------------------------------
 config:
