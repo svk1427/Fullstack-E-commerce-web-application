@@ -697,3 +697,53 @@ when we are missing some required env values/secrets in configmaps or secrets we
 gateway-depl-7b598bfbc5-c6r8p 0/1 CreateContainerConfigError 0 52s
 
 in events - Error some secret_name cant find
+
+ok, ah specific env var miss aiendi ani findout chesaka
+adhi pettesi pipeline run chestey UPGRADE FAILED ani error
+ochi pipeline fail avutadi
+
+so, bastion host nundi elanti cases lo few commands run cheyyali
+
+1, delete the deploy of that service
+2. uninstall the helm service
+
+appatiki avvakapotey rerun chesaka e below error vastadi
+
+UPGRADE FAILED: another operation is in progress. install/ugrade
+
+dhanniki e cmnds run cheyali
+
+# Check the status of the release
+helm status api-gateway -n ecommerce
+
+# List all releases and their status
+helm list -n ecommerce -a
+
+# If the release is stuck in "pending-install" or "pending-upgrade", rollback:
+helm rollback api-gateway -n ecommerce
+
+# Or if it's stuck badly, uninstall and let the workflow redeploy:
+helm uninstall api-gateway -n ecommerce
+
+appatiki avvakaunda e belowe error vastey
+
+status - pending-install when I run above rollback command getting the below eerror
+
+ERROR: release has no 0 version
+
+# Force delete the stuck release
+helm uninstall api-gateway -n ecommerce --no-hooks
+
+# If that fails, delete the secret that tracks the release
+kubectl delete secret -l name=api-gateway,owner=helm -n ecommerce
+
+E paina 2 commands run chestey helm list nundi chart del ipothundi
+
+------------
+
+eadaina pod lo health check probes fail ipoiena sare crashloop
+backoff error vastadi status lo
+alaney backoff error tho paatu liveness probes fail ayyayi ani chupistadi events lo
+
+dhiniki app code changes/sg rules check cheskoni resolve cheyyali
+e error lo 0/1 chupisthundi READY daggara
