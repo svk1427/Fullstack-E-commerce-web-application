@@ -7,3 +7,4 @@ data:
   SPRING_PROFILES_ACTIVE: {{ .Values.config.SPRING_PROFILES_ACTIVE | toString | quote }}
   EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: {{ .Values.config.EUREKA_CLIENT_SERVICEURL_DEFAULTZONE | toString | quote }}
   EUREKA_INSTANCE_HOSTNAME: {{ .Values.config.EUREKA_INSTANCE_HOSTNAME | toString | quote }}
+  LOG_LEVEL: {{ .Values.config.LOG_LEVEL | toString | quote }}
