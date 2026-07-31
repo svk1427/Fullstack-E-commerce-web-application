@@ -74,7 +74,11 @@ jobs:
       - name: "🔑 Login to ECR"
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
-      - name: "🐳 Build & Push Image"
+      - name: "� Ensure ECR Repository Exists"
+        run: |
+          aws ecr describe-repositories --repository-names ${{ secrets.ECR_PRODUCT_REPOSITORY }} --region ${{ env.AWS_REGION }} || \
+          aws ecr create-repository --repository-name ${{ secrets.ECR_PRODUCT_REPOSITORY }} --region ${{ env.AWS_REGION }} --image-scanning-configuration scanOnPush=true
+      - name: "�� Build & Push Image"
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ steps.env-setup.outputs.short_sha }}
