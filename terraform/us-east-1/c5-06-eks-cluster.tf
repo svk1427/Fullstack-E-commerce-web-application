@@ -26,3 +26,5 @@ resource "aws_eks_cluster" "eks_cluster" {
     aws_iam_role_policy_attachment.eks-AmazonEKSVPCResourceController,
     aws_security_group.eks_cluster_sg,
     aws_security_group.eks_nodes_sg,
+  ]
+}
