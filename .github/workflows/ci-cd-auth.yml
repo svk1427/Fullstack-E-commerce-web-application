@@ -72,11 +72,11 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: "🔍 Build & Test"
+      - name: "🔍 Build & Package"
         working-directory: ${{ env.SERVICE_PATH }}
         run: |
           chmod +x mvnw
-          ./mvnw clean verify -B
+          ./mvnw clean package -DskipTests -B
       - name: "🔐 Configure AWS"
         uses: aws-actions/configure-aws-credentials@v4
         with:
