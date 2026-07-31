@@ -1,45 +1,55 @@
 ingress:
   name: purely-ingress
-  namespace: default
+  namespace: ecommerce
   # =============================================================================
+
   # ALB CONFIGURATION - PRODUCTION
   # =============================================================================
   alb:
     scheme: internet-facing
     targetType: ip
     ingressClassName: alb
-    listenPorts: '[{"HTTP": 80}, {"HTTPS": 443}]'
-    sslRedirect: "true"
+    listenPorts: '[{"HTTP": 80}]'
+    sslRedirect: "false"
     # Security Group (Terraform managed - passed during deployment)
+
     securityGroups: ""
     # Health Check Configuration
-    healthcheckPath: /health
+
+    healthcheckPath: /
     healthcheckProtocol: HTTP
     healthcheckPort: traffic-port
     healthcheckInterval: "15"
     healthcheckTimeout: "5"
     healthyThreshold: "2"
     unhealthyThreshold: "3"
-    successCodes: "200"
+    successCodes: "200,301,302,404"
     # Load Balancer Attributes
+
     idleTimeout: "120"
-    deletionProtection: "true"
-    accessLogsEnabled: "true"
+    deletionProtection: "false"
+    accessLogsEnabled: "false"
     accessLogsS3Bucket: ""
     accessLogsS3Prefix: "alb-logs"
     # WAF Integration
+
     wafAclArn: ""
     # Shield Protection
+
     shieldAdvancedProtection: "false"
   # =============================================================================
+
   # ROUTING RULES
   # =============================================================================
   rules:
+    # Frontend - Home page and static files
     - path: /
       pathType: Prefix
       serviceName: web-app-svc
       servicePort: 80
     - path: /api
+      # API Gateway - All backend API calls
+
       pathType: Prefix
       serviceName: gateway-svc
       servicePort: 80
