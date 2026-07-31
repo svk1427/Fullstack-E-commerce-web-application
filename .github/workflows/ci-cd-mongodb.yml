@@ -5,7 +5,7 @@ on:
       environment:
         description: "Target Environment"
         required: true
-        default: "dev"
+        default: "prod"
         type: choice
         options:
           - dev
