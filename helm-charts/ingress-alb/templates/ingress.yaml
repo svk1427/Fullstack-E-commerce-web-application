@@ -20,12 +20,12 @@ metadata:
     alb.ingress.kubernetes.io/manage-backend-security-group-rules: "true"
     {{- end }}
     
-    # SSL/TLS
-    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    # SSL/TLS - Only enable if certificate is provided
     {{- if .Values.ingress.alb.certificateArn }}
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
     alb.ingress.kubernetes.io/certificate-arn: {{ .Values.ingress.alb.certificateArn }}
-    {{- end }}
     alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+    {{- end }}
     
     # Health Check
     alb.ingress.kubernetes.io/healthcheck-path: {{ .Values.ingress.alb.healthcheckPath }}
