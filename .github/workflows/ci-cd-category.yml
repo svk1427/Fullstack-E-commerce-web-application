@@ -108,10 +108,18 @@ jobs:
           fi
           HELM_CMD="$HELM_CMD --set ${{ env.HELM_VALUE_KEY }}.image.repository=$ECR_REGISTRY/${{ secrets.ECR_CATEGORY_REPOSITORY }}"
           HELM_CMD="$HELM_CMD --set ${{ env.HELM_VALUE_KEY }}.image.tag=$IMAGE_TAG"
-          HELM_CMD="$HELM_CMD --set-string secret.SPRING_DATA_MONGODB_URI_CATEGORY=${MONGODB_URI}"
+          HELM_CMD="$HELM_CMD --set-string secret.SPRING_DATA_MONGODB_URI_CATEGORY='${MONGODB_URI}'"
           HELM_CMD="$HELM_CMD --atomic --timeout 10m"
+
+          # Debug: Show if MongoDB URI is set (mask the actual value)
+          if [ -n "$MONGODB_URI" ]; then
+            echo "✅ MongoDB URI is configured (length: ${#MONGODB_URI})"
+          else
+            echo "❌ WARNING: MongoDB URI is empty! Check SPRING_DATA_MONGODB_URI_CATEGORY secret"
+          fi
+
           echo "🚀 Deploying to namespace: ${K8S_NAMESPACE}"
-          $HELM_CMD
+          eval $HELM_CMD
       - name: "✅ Verify Deployment"
         env:
           K8S_NAMESPACE: ${{ steps.env-setup.outputs.k8s_namespace }}

@@ -1,0 +1,26 @@
+# MongoDB Development Configuration
+mongodb:
+  label: mongodb
+  replicas: 1
+  image:
+    repository: mongo
+    tag: "7.0"
+    pullPolicy: IfNotPresent
+  # Root credentials
+  rootUsername: admin
+  rootPassword: adminpassword123
+  # Storage
+  storage:
+    size: 1Gi
+    storageClass: gp2
+  # Resources - minimal for dev
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  # Service
+  service:
+    port: 27017
