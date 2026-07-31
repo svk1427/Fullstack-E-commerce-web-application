@@ -582,3 +582,30 @@ sudo mv kubectl /usr/local/bin/
 
 # Verify installation
 kubectl version --client
+
+if you get this kind of issue , its a aws cli issue mostly
+
+error: exec plugin: invalid apiversion "client.authentication.k8s.io/v1alpha1"
+
+need to upgrade to aws cli v2 the update the kube config
+
+# Delete old kubeconfig
+rm -f ~/.kube/config
+
+# Regenerate kubeconfig with new API version
+aws eks update-kubeconfig --region us-east-1 --name SAP-dev-eksdemo
+
+then now i can able to get the kubectl get nodes command
+
+1. Service Registry  → Base service discovery
+2. Auth Service      → Authentication
+3. User Service      → User management
+4. Category Service  → Product categories
+5. Product Service   → Product catalog
+6. Cart Service      → Shopping cart
+7. Order Service     → Order processing
+8. Notification Service → Notifications
+9. API Gateway       → Routes all traffic
+10. Web App          → Frontend
+11. Ingress ALB      → Load balancer routing
+

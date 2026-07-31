@@ -29,7 +29,7 @@ env:
   SERVICE_PATH: microservice-backend/api-gateway
   HELM_CHART_PATH: helm-charts/api-gateway
   HELM_VALUE_KEY: gateway
-  JAVA_VERSION: '17'
+  JAVA_VERSION: '21'
   HELM_VERSION: '3.14.0'
   AWS_REGION: us-east-1
 jobs:

@@ -31,7 +31,7 @@ env:
   SERVICE_PATH: microservice-backend/auth-service
   HELM_CHART_PATH: helm-charts/auth-service
   HELM_VALUE_KEY: auth
-  JAVA_VERSION: '17'
+  JAVA_VERSION: '21'
   HELM_VERSION: '3.14.0'
   AWS_REGION: us-east-1
 jobs:

@@ -29,7 +29,7 @@ env:
   SERVICE_PATH: microservice-backend/notification-service
   HELM_CHART_PATH: helm-charts/notification-service
   HELM_VALUE_KEY: notification
-  JAVA_VERSION: '17'
+  JAVA_VERSION: '21'
   HELM_VERSION: '3.14.0'
   AWS_REGION: us-east-1
 jobs:
