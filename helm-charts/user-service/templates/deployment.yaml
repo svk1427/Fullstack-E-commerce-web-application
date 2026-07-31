@@ -1,7 +1,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ printf "%s-depl" .Values.user.label }}  
+  name: {{ printf "%s-depl" .Values.user.label }}
+  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ .Values.user.label }}
 spec:

@@ -5,6 +5,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ printf "%s-depl" .Values.gateway.label }}
+  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ .Values.gateway.label }}
     version: {{ .Values.gateway.image.tag | default "latest" | quote }}

@@ -1,7 +1,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ printf "%s-depl" .Values.notification.label }}  
+  name: {{ printf "%s-depl" .Values.notification.label }}
+  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ .Values.notification.label }}
 spec:

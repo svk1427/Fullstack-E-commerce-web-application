@@ -33,10 +33,10 @@ cart:
       memory: 512Mi
   # ---------------------------------------------------------------------------
 
-  # HORIZONTAL POD AUTOSCALER
+  # HORIZONTAL POD AUTOSCALER - Disabled for dev/small clusters
   # ---------------------------------------------------------------------------
   autoscaling:
-    enabled: true
+    enabled: false
     minReplicas: 1
     maxReplicas: 3
     targetCPUUtilization: 70

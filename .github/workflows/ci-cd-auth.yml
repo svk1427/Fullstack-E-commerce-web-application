@@ -129,11 +129,11 @@ jobs:
           HELM_CMD="$HELM_CMD --set ${{ env.HELM_VALUE_KEY }}.image.repository=$ECR_REGISTRY/${{ secrets.ECR_AUTH_REPOSITORY }}"
           HELM_CMD="$HELM_CMD --set ${{ env.HELM_VALUE_KEY }}.image.tag=$IMAGE_TAG"
           HELM_CMD="$HELM_CMD --set secret.SPRING_DATA_MONGODB_URI_AUTH=${{ secrets.SPRING_DATA_MONGODB_URI_AUTH }}"
-          HELM_CMD="$HELM_CMD --wait --timeout 5m"
+          HELM_CMD="$HELM_CMD --atomic --timeout 10m"
 
           echo "🚀 Deploying to namespace: ${K8S_NAMESPACE}"
           $HELM_CMD
       - name: "✅ Verify Deployment"
         env:
           K8S_NAMESPACE: ${{ steps.env-setup.outputs.k8s_namespace }}
-        run: kubectl rollout status deployment/auth-depl -n ${K8S_NAMESPACE} --timeout=300s
+        run: kubectl rollout status deployment/auth-depl -n ${K8S_NAMESPACE} --timeout=600s
