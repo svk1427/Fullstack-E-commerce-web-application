@@ -13,6 +13,7 @@ resource "aws_ecr_repository" "purely_service_registry" {
     scan_on_push = true
   }
 }
+
 resource "aws_ecr_repository" "purely_category_registry" {
   name                 = "purely_category_registry"
   image_tag_mutability = "MUTABLE"
