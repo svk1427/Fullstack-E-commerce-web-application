@@ -4,5 +4,6 @@ metadata:
   name: {{ .Values.config.label }}
   namespace: {{ .Release.Namespace }}
 data:
+  SPRING_PROFILES_ACTIVE: {{ .Values.config.SPRING_PROFILES_ACTIVE | toString | quote }}
   EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: {{ .Values.config.EUREKA_CLIENT_SERVICEURL_DEFAULTZONE | toString | quote }}
   EUREKA_INSTANCE_HOSTNAME: {{ .Values.config.EUREKA_INSTANCE_HOSTNAME | toString | quote }}
