@@ -97,6 +97,7 @@ jobs:
           IMAGE_TAG: ${{ steps.env-setup.outputs.short_sha }}
           TARGET_ENV: ${{ steps.env-setup.outputs.target_env }}
           K8S_NAMESPACE: ${{ steps.env-setup.outputs.k8s_namespace }}
+          MONGODB_URI: ${{ secrets.SPRING_DATA_MONGODB_URI_ORDER }}
         run: |
           ENV_FILE="helm-charts/environments/${TARGET_ENV}/${{ env.SERVICE_NAME }}.yaml"
           HELM_CMD="helm upgrade --install ${{ env.SERVICE_NAME }} ${{ env.HELM_CHART_PATH }}"
@@ -107,8 +108,8 @@ jobs:
           fi
           HELM_CMD="$HELM_CMD --set ${{ env.HELM_VALUE_KEY }}.image.repository=$ECR_REGISTRY/${{ secrets.ECR_ORDER_REPOSITORY }}"
           HELM_CMD="$HELM_CMD --set ${{ env.HELM_VALUE_KEY }}.image.tag=$IMAGE_TAG"
-          HELM_CMD="$HELM_CMD --set secret.SPRING_DATA_MONGODB_URI_ORDER=${{ secrets.SPRING_DATA_MONGODB_URI_ORDER }}"
-          HELM_CMD="$HELM_CMD --wait --timeout 5m"
+          HELM_CMD="$HELM_CMD --set-string secret.SPRING_DATA_MONGODB_URI_ORDER=${MONGODB_URI}"
+          HELM_CMD="$HELM_CMD --atomic --timeout 10m"
           echo "🚀 Deploying to namespace: ${K8S_NAMESPACE}"
           $HELM_CMD
       - name: "✅ Verify Deployment"
