@@ -16,7 +16,8 @@ spec:
     spec:
       containers:
         - name: {{ printf "%s-container" .Values.notification.label }}
-          image: {{ .Values.notification.image }}
+          image: "{{ .Values.notification.image.repository }}:{{ .Values.notification.image.tag }}"
+          imagePullPolicy: {{ .Values.notification.image.pullPolicy | default "IfNotPresent" }}
           ports:
             - containerPort: {{ .Values.notification.containerPort }}
           env:
@@ -42,8 +43,8 @@ spec:
                   key: SPRING_MAIL_PASSWORD   
           resources:
             requests:
-              cpu: {{ .Values.notification.requests.cpu }}
-              memory: {{ .Values.notification.requests.memory }}
+              cpu: {{ .Values.notification.resources.requests.cpu }}
+              memory: {{ .Values.notification.resources.requests.memory }}
             limits:
-              cpu: {{ .Values.notification.limits.cpu }}
-              memory: {{ .Values.notification.limits.memory }}               
+              cpu: {{ .Values.notification.resources.limits.cpu }}
+              memory: {{ .Values.notification.resources.limits.memory }}               

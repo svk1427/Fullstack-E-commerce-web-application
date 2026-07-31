@@ -16,7 +16,8 @@ spec:
     spec:
       containers:
         - name: {{ printf "%s-container" .Values.cart.label }}
-          image: {{ .Values.cart.image }}
+          image: "{{ .Values.cart.image.repository }}:{{ .Values.cart.image.tag }}"
+          imagePullPolicy: {{ .Values.cart.image.pullPolicy | default "IfNotPresent" }}
           ports:
             - containerPort: {{ .Values.cart.containerPort }}
           env:
@@ -37,8 +38,8 @@ spec:
                   key: EUREKA_INSTANCE_HOSTNAME
           resources:
             requests:
-              cpu: {{ .Values.cart.requests.cpu }}
-              memory: {{ .Values.cart.requests.memory }}
+              cpu: {{ .Values.cart.resources.requests.cpu }}
+              memory: {{ .Values.cart.resources.requests.memory }}
             limits:
-              cpu: {{ .Values.cart.limits.cpu }}
-              memory: {{ .Values.cart.limits.memory }}
+              cpu: {{ .Values.cart.resources.limits.cpu }}
+              memory: {{ .Values.cart.resources.limits.memory }}

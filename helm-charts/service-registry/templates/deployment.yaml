@@ -16,13 +16,14 @@ spec:
     spec:
       containers:
         - name: {{ printf "%s-container" .Values.registry.label }}
-          image: {{ .Values.registry.image }}
+          image: "{{ .Values.registry.image.repository }}:{{ .Values.registry.image.tag }}"
+          imagePullPolicy: {{ .Values.registry.image.pullPolicy | default "IfNotPresent" }}
           ports:
             - containerPort: {{ .Values.registry.containerPort }}
           resources:
             requests:
-              cpu: {{ .Values.registry.requests.cpu }}
-              memory: {{ .Values.registry.requests.memory }}
+              cpu: {{ .Values.registry.resources.requests.cpu }}
+              memory: {{ .Values.registry.resources.requests.memory }}
             limits:
-              cpu: {{ .Values.registry.limits.cpu }}
-              memory: {{ .Values.registry.limits.memory }}
+              cpu: {{ .Values.registry.resources.limits.cpu }}
+              memory: {{ .Values.registry.resources.limits.memory }}
