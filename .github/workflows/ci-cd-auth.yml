@@ -55,11 +55,15 @@ jobs:
             K8S_NAMESPACE="$TARGET_ENV"
           fi
 
+          # Generate 8 character short SHA
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
+
           echo "target_env=$TARGET_ENV" >> $GITHUB_OUTPUT
           echo "k8s_namespace=$K8S_NAMESPACE" >> $GITHUB_OUTPUT
-          echo "short_sha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+          echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
 
           echo "🎯 Target: $TARGET_ENV → Namespace: $K8S_NAMESPACE"
+          echo "📝 Image Tag: $SHORT_SHA"
       - name: "📥 Checkout Code"
         uses: actions/checkout@v4
       - name: "☕ Setup Java"

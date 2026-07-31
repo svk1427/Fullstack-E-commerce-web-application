@@ -7,18 +7,18 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: {{ printf "%s-depl" .Values.notification.label }}  
-  minReplicas: 1
-  maxReplicas: 3
+  minReplicas: {{ .Values.notification.autoscaling.minReplicas | default 1 }}
+  maxReplicas: {{ .Values.notification.autoscaling.maxReplicas | default 3 }}
   metrics:
   - type: Resource
     resource:
       name: cpu
       target:
         type: Utilization
-        averageUtilization: {{ .Values.notification.averageUtilization.cpu }}
+        averageUtilization: {{ .Values.notification.autoscaling.targetCPUUtilization | default 70 }}
   - type: Resource
     resource:
       name: memory
       target:
         type: Utilization
-        averageUtilization: {{ .Values.notification.averageUtilization.memory }}
+        averageUtilization: {{ .Values.notification.autoscaling.targetMemoryUtilization | default 80 }}

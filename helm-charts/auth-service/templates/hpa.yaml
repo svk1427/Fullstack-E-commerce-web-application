@@ -7,18 +7,18 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: {{ printf "%s-depl" .Values.auth.label }}  
-  minReplicas: 1
-  maxReplicas: 3
+  minReplicas: {{ .Values.auth.autoscaling.minReplicas | default 1 }}
+  maxReplicas: {{ .Values.auth.autoscaling.maxReplicas | default 3 }}
   metrics:
   - type: Resource
     resource:
       name: cpu
       target:
         type: Utilization
-        averageUtilization: {{ .Values.auth.averageUtilization.cpu }}
+        averageUtilization: {{ .Values.auth.autoscaling.targetCPUUtilization | default 70 }}
   - type: Resource
     resource:
       name: memory
       target:
         type: Utilization
-        averageUtilization: {{ .Values.auth.averageUtilization.memory }}
+        averageUtilization: {{ .Values.auth.autoscaling.targetMemoryUtilization | default 80 }}
