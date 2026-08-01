@@ -1,0 +1,13 @@
+apiVersion: v2
+name: common
+description: Common resources for Purely E-Commerce (Service Accounts, RBAC, Network Policies)
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - common
+  - service-account
+  - rbac
+  - security
+maintainers:
+  - name: Purely Team

@@ -1,0 +1,47 @@
+# =============================================================================
+# RBAC - ROLES AND ROLE BINDINGS
+# =============================================================================
+# Defines what each service account can do in the cluster
+# =============================================================================
+
+{{- range .Values.roles }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ .name }}
+    app.kubernetes.io/part-of: purely-ecommerce
+rules:
+{{- range .rules }}
+  - apiGroups: {{ .apiGroups | toJson }}
+    resources: {{ .resources | toJson }}
+    verbs: {{ .verbs | toJson }}
+{{- end }}
+{{- end }}
+
+---
+# =============================================================================
+# ROLE BINDINGS - Connect Service Accounts to Roles
+# =============================================================================
+{{- range .Values.roleBindings }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ .name }}
+    app.kubernetes.io/part-of: purely-ecommerce
+subjects:
+  - kind: ServiceAccount
+    name: {{ .serviceAccount }}
+    namespace: {{ $.Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ .role }}
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}

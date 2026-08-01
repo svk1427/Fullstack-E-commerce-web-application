@@ -15,6 +15,7 @@ spec:
       labels:
         app: {{ .Values.order.label }}
     spec:
+      serviceAccountName: {{ .Values.order.serviceAccount | default "order-sa" }}
       containers:
         - name: {{ printf "%s-container" .Values.order.label }}
           image: "{{ .Values.order.image.repository }}:{{ .Values.order.image.tag }}"

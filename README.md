@@ -39,6 +39,8 @@
     - [AWS Infrastructure](#aws-infrastructure)
       - [Networking (AWS VPC)](#networking-aws-vpc)
       - [Kubernetes Cluster (AWS EKS)](#kubernetes-cluster-aws-eks)
+      - [Service Accounts & RBAC](#service-accounts--rbac)
+      - [CoreDNS (Cluster DNS)](#coredns-cluster-dns)
     - [Terraform - Infrastructure as Code](#terraform-infrastructure-as-code)
     - [CI/CD with GitHub Actions](#cicd-with-github-actions)
 4. [How to run locally?](#%EF%B8%8F-how-to-run-locally)
@@ -82,6 +84,7 @@ fullstack-E-commerce-web-application/
 │   ├── auth-service/
 │   ├── cart-service/
 │   ├── category-service/
+│   ├── common/                    # Service Accounts, RBAC, shared resources
 │   ├── ingress-alb/
 │   ├── notification-service/
 │   ├── order-service/
@@ -268,6 +271,81 @@ fullstack-E-commerce-web-application/
 > Horizontal Pod AutoScaler (HPA) is a Kubernetes resource that automatically scales the number of pods in a Deployment, ReplicaSet, or StatefulSet. It continuously watches pod resource metrics (like CPU %, memory %, or custom metrics) from metrics-server. If usage goes above or below a defined threshold, it increases or decreases pods.
 
 > Cluster Autoscaler (CA) is a Kubernetes component that automatically adjusts the number of worker nodes in the cluster. If HPA scales up pods but no nodes have enough resources to run them, CA adds new nodes. If nodes are scaled down, it removes nodes to save cost.
+
+#### Service Accounts & RBAC
+
+Service Accounts provide identity for pods to authenticate with the Kubernetes API and external services (like AWS). Each microservice has its own Service Account following the **principle of least privilege**.
+
+**Service Accounts:**
+
+| Service Account | Used By | Purpose |
+|-----------------|---------|---------|
+| `gateway-sa` | API Gateway | Service discovery, list endpoints |
+| `auth-sa` | Auth Service | Read secrets for JWT/credentials |
+| `product-sa` | Product Service | S3 access for product images (IRSA) |
+| `order-sa` | Order Service | SQS access for order queue (IRSA) |
+| `cart-sa` | Cart Service | Basic K8s API access |
+| `category-sa` | Category Service | Basic K8s API access |
+| `user-sa` | User Service | Basic K8s API access |
+| `notification-sa` | Notification Service | SES access for emails (IRSA) |
+| `registry-sa` | Eureka | Service discovery |
+| `web-app-sa` | Frontend | No K8s API access (most restricted) |
+
+**RBAC Roles:**
+
+| Role | Permissions | Bound To |
+|------|-------------|----------|
+| `service-discovery-role` | List services, endpoints, pods | gateway-sa, registry-sa |
+| `secret-reader-role` | Read secrets | auth-sa |
+| `configmap-reader-role` | Read configmaps | All backend services |
+
+**Use Cases:**
+
+1. **Pod-to-API-Server Authentication**: Pods authenticate to K8s API using mounted service account tokens
+2. **AWS IAM Roles for Service Accounts (IRSA)**: Pods assume AWS IAM roles without access keys
+3. **Least Privilege Security**: Each service gets only the permissions it needs
+4. **Audit & Compliance**: Track which service identity performed actions
+
+**Validation Commands:**
+```bash
+# List service accounts
+kubectl get serviceaccounts -n ecommerce
+
+# Check pod's service account
+kubectl get pods -n ecommerce -o custom-columns='POD:metadata.name,SA:spec.serviceAccountName'
+
+# Test RBAC permissions
+kubectl auth can-i list services -n ecommerce --as=system:serviceaccount:ecommerce:gateway-sa
+```
+
+#### CoreDNS (Cluster DNS)
+
+CoreDNS is automatically installed by EKS and provides DNS resolution for service discovery within the cluster.
+
+**How Services Communicate:**
+```
+┌─────────────┐   DNS Query    ┌─────────────┐   Returns IP   ┌─────────────┐
+│ gateway-pod │ ─────────────► │  CoreDNS    │ ─────────────► │  auth-svc   │
+│             │  "auth-svc"    │             │  "10.0.1.15"   │  10.0.1.15  │
+└─────────────┘                └─────────────┘                └─────────────┘
+```
+
+**DNS Names for Services:**
+
+| Service | Short DNS (same namespace) | Full FQDN |
+|---------|---------------------------|-----------|
+| Auth | `auth-svc` | `auth-svc.ecommerce.svc.cluster.local` |
+| Gateway | `gateway-svc` | `gateway-svc.ecommerce.svc.cluster.local` |
+| Registry | `registry-svc` | `registry-svc.ecommerce.svc.cluster.local` |
+
+**Validation Commands:**
+```bash
+# Check CoreDNS pods
+kubectl get pods -n kube-system -l k8s-app=kube-dns
+
+# Test DNS resolution from a pod
+kubectl exec -it <pod-name> -n ecommerce -- nslookup auth-svc
+```
 
 ### Terraform (Infrastructure as Code)
 
@@ -795,3 +873,32 @@ helm history api-gateway -n ecommerce
 # 2         superseded  Upgrade complete
 # 3         superseded  Upgrade complete
 # 4         deployed    Rollback to 1       ← New current (same as v1)
+
+That's Kubernetes default behavior! When you don't specify a strategy, Kubernetes automatically applies these defaults:
+
+Kubernetes Default Strategy
+
+spec:
+  strategy:
+    type: RollingUpdate      # Default (not Recreate)
+    rollingUpdate:
+      maxSurge: 25%          # Default
+      maxUnavailable: 25%    # Default
+
+      You don't need to add strategy if defaults work for you. But I added explicit values to your web-app for:
+
+Clarity - Anyone reading knows the intent
+Consistency - Same behavior regardless of replica count
+Documentation - Self-documenting infrastructure
+The change I made earlier to web-app deployment just makes the implicit default explicit.
+
+# This should work for Eureka
+kubectl exec -it $(kubectl get pod -n ecommerce -l app=auth -o jsonpath='{.items[0].metadata.name}') -n ecommerce -- curl -s http://registry-svc:80/eureka/apps 
+
+the abpve coomand used to test the conn between the pod to pod
+here we did for auth pod conecting to registry or not. connected
+it generates a some xml content for confirmaion
+
+that port is mandatory , we need to get heat from the srvc ports
+
+

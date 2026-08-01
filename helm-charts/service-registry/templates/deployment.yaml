@@ -15,6 +15,7 @@ spec:
       labels:
         app: {{ .Values.registry.label }}
     spec:
+      serviceAccountName: {{ .Values.registry.serviceAccount | default "registry-sa" }}
       containers:
         - name: {{ printf "%s-container" .Values.registry.label }}
           image: "{{ .Values.registry.image.repository }}:{{ .Values.registry.image.tag }}"

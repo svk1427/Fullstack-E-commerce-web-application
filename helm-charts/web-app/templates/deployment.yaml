@@ -20,6 +20,8 @@ spec:
       labels:
         app: {{ .Values.web.label }}
     spec:
+      serviceAccountName: {{ .Values.web.serviceAccount | default "web-app-sa" }}
+      automountServiceAccountToken: false
       containers:
         - name: {{ printf "%s-container" .Values.web.label }}
           image: "{{ .Values.web.image.repository }}:{{ .Values.web.image.tag }}"

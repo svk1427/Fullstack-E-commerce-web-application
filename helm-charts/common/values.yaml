@@ -1,0 +1,164 @@
+# =============================================================================
+# COMMON HELM CHART - VALUES
+# =============================================================================
+# Shared resources: Service Accounts, RBAC, Network Policies
+# =============================================================================
+# =============================================================================
+# SERVICE ACCOUNTS
+# =============================================================================
+# Each service gets its own identity for:
+# - Kubernetes API access
+# - AWS IAM Roles (IRSA) - no access keys needed!
+# - Secret/ConfigMap access control
+# =============================================================================
+serviceAccounts:
+  # ---------------------------------------------------------------------------
+  # Gateway Service Account
+  # ---------------------------------------------------------------------------
+  - name: gateway-sa
+    automountToken: true
+    # Uncomment to enable AWS access (e.g., for X-Ray, CloudWatch)
+  # ---------------------------------------------------------------------------
+  # Auth Service Account
+  # ---------------------------------------------------------------------------
+  - name: auth-sa
+    # awsRoleArn: arn:aws:iam::ACCOUNT_ID:role/purely-gateway-role
+
+    automountToken: true
+    # Uncomment for AWS Secrets Manager, Cognito, etc.
+  # ---------------------------------------------------------------------------
+  # Product Service Account
+  # ---------------------------------------------------------------------------
+  - name: product-sa
+    # awsRoleArn: arn:aws:iam::ACCOUNT_ID:role/purely-auth-role
+
+    automountToken: true
+    # Uncomment for S3 access (product images)
+  # ---------------------------------------------------------------------------
+  # Order Service Account
+  # ---------------------------------------------------------------------------
+  - name: order-sa
+    # awsRoleArn: arn:aws:iam::ACCOUNT_ID:role/purely-product-role
+
+    automountToken: true
+    # Uncomment for SQS access (order queue)
+  # ---------------------------------------------------------------------------
+  # Cart Service Account
+  # ---------------------------------------------------------------------------
+  - name: cart-sa
+    # awsRoleArn: arn:aws:iam::ACCOUNT_ID:role/purely-order-role
+
+    automountToken: true
+  # ---------------------------------------------------------------------------
+  # Category Service Account
+  # ---------------------------------------------------------------------------
+  - name: category-sa
+    automountToken: true
+  # ---------------------------------------------------------------------------
+  # User Service Account
+  # ---------------------------------------------------------------------------
+  - name: user-sa
+    automountToken: true
+  # ---------------------------------------------------------------------------
+  # Notification Service Account
+  # ---------------------------------------------------------------------------
+  - name: notification-sa
+    automountToken: true
+    # Uncomment for SES access (send emails)
+  # ---------------------------------------------------------------------------
+  # Service Registry (Eureka) Account
+  # ---------------------------------------------------------------------------
+  - name: registry-sa
+    # awsRoleArn: arn:aws:iam::ACCOUNT_ID:role/purely-notification-role
+
+    automountToken: true
+  # ---------------------------------------------------------------------------
+  # Web App Service Account
+  # ---------------------------------------------------------------------------
+  - name: web-app-sa
+    automountToken: false # Frontend doesn't need K8s API access
+# =============================================================================
+# RBAC ROLES
+# =============================================================================
+# Define permissions for each role
+# Principle of Least Privilege: Only grant what's needed
+# =============================================================================
+roles:
+  # ---------------------------------------------------------------------------
+  # Read-only access to services and endpoints (for service discovery)
+  # ---------------------------------------------------------------------------
+  - name: service-discovery-role
+    rules:
+      - apiGroups: [""]
+        resources: ["services", "endpoints", "pods"]
+        verbs: ["get", "list", "watch"]
+  # ---------------------------------------------------------------------------
+  # Secret reader role (for services that need secrets)
+  # ---------------------------------------------------------------------------
+  - name: secret-reader-role
+    rules:
+      - apiGroups: [""]
+        resources: ["secrets"]
+        verbs: ["get", "list"]
+  # ---------------------------------------------------------------------------
+  # ConfigMap reader role
+  # ---------------------------------------------------------------------------
+  - name: configmap-reader-role
+    rules:
+      - apiGroups: [""]
+        resources: ["configmaps"]
+        verbs: ["get", "list", "watch"]
+  # ---------------------------------------------------------------------------
+  # Full read access (for monitoring/debugging)
+  # ---------------------------------------------------------------------------
+  - name: read-all-role
+    rules:
+      - apiGroups: [""]
+        resources: ["pods", "services", "endpoints", "configmaps"]
+        verbs: ["get", "list", "watch"]
+      - apiGroups: ["apps"]
+        resources: ["deployments", "replicasets"]
+        verbs: ["get", "list", "watch"]
+# =============================================================================
+# ROLE BINDINGS
+# =============================================================================
+# Connect service accounts to roles
+# =============================================================================
+roleBindings:
+  # Gateway needs to discover other services
+  - name: gateway-service-discovery
+    serviceAccount: gateway-sa
+    role: service-discovery-role
+  # Auth service reads secrets
+  - name: auth-secret-reader
+    serviceAccount: auth-sa
+    role: secret-reader-role
+  # Registry (Eureka) needs to see all services
+  - name: registry-service-discovery
+    serviceAccount: registry-sa
+    role: service-discovery-role
+  # All services read configmaps
+  - name: gateway-configmap-reader
+    serviceAccount: gateway-sa
+    role: configmap-reader-role
+  - name: auth-configmap-reader
+    serviceAccount: auth-sa
+    role: configmap-reader-role
+  - name: product-configmap-reader
+    serviceAccount: product-sa
+    role: configmap-reader-role
+  - name: order-configmap-reader
+    serviceAccount: order-sa
+    role: configmap-reader-role
+  - name: cart-configmap-reader
+    serviceAccount: cart-sa
+    role: configmap-reader-role
+  - name: category-configmap-reader
+    serviceAccount: category-sa
+    role: configmap-reader-role
+  - name: user-configmap-reader
+    serviceAccount: user-sa
+    role: configmap-reader-role
+  - name: notification-configmap-reader
+    serviceAccount: notification-sa
+    role: configmap-reader-role

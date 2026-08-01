@@ -15,6 +15,7 @@ spec:
       labels:
         app: {{ .Values.category.label }}
     spec:
+      serviceAccountName: {{ .Values.category.serviceAccount | default "category-sa" }}
       containers:
         - name: {{ printf "%s-container" .Values.category.label }}
           image: "{{ .Values.category.image.repository }}:{{ .Values.category.image.tag }}"

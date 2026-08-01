@@ -24,6 +24,7 @@ spec:
       labels:
         app: {{ .Values.gateway.label }}
     spec:
+      serviceAccountName: {{ .Values.gateway.serviceAccount | default "gateway-sa" }}
       {{- if .Values.gateway.affinity.enabled }}
       affinity:
         podAntiAffinity:

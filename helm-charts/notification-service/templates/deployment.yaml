@@ -15,6 +15,7 @@ spec:
       labels:
         app: {{ .Values.notification.label }}
     spec:
+      serviceAccountName: {{ .Values.notification.serviceAccount | default "notification-sa" }}
       containers:
         - name: {{ printf "%s-container" .Values.notification.label }}
           image: "{{ .Values.notification.image.repository }}:{{ .Values.notification.image.tag }}"

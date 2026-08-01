@@ -15,6 +15,7 @@ spec:
       labels:
         app: {{ .Values.cart.label }}
     spec:
+      serviceAccountName: {{ .Values.cart.serviceAccount | default "cart-sa" }}
       containers:
         - name: {{ printf "%s-container" .Values.cart.label }}
           image: "{{ .Values.cart.image.repository }}:{{ .Values.cart.image.tag }}"

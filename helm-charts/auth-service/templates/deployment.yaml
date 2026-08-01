@@ -15,6 +15,7 @@ spec:
       labels:
         app: {{ .Values.auth.label }}
     spec:
+      serviceAccountName: {{ .Values.auth.serviceAccount | default "auth-sa" }}
       containers:
         - name: {{ printf "%s-container" .Values.auth.label }}
           image: "{{ .Values.auth.image.repository }}:{{ .Values.auth.image.tag }}"
