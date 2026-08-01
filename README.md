@@ -39,6 +39,8 @@
     - [AWS Infrastructure](#aws-infrastructure)
       - [Networking (AWS VPC)](#networking-aws-vpc)
       - [Kubernetes Cluster (AWS EKS)](#kubernetes-cluster-aws-eks)
+      - [Horizontal Pod Autoscaler (HPA)](#horizontal-pod-autoscaler-hpa---deep-dive)
+      - [Cluster Autoscaler](#cluster-autoscaler---deep-dive)
       - [Service Accounts & RBAC](#service-accounts--rbac)
       - [CoreDNS (Cluster DNS)](#coredns-cluster-dns)
     - [Terraform - Infrastructure as Code](#terraform-infrastructure-as-code)
@@ -271,6 +273,168 @@ fullstack-E-commerce-web-application/
 > Horizontal Pod AutoScaler (HPA) is a Kubernetes resource that automatically scales the number of pods in a Deployment, ReplicaSet, or StatefulSet. It continuously watches pod resource metrics (like CPU %, memory %, or custom metrics) from metrics-server. If usage goes above or below a defined threshold, it increases or decreases pods.
 
 > Cluster Autoscaler (CA) is a Kubernetes component that automatically adjusts the number of worker nodes in the cluster. If HPA scales up pods but no nodes have enough resources to run them, CA adds new nodes. If nodes are scaled down, it removes nodes to save cost.
+
+#### Horizontal Pod Autoscaler (HPA) - Deep Dive
+
+HPA automatically scales pods based on CPU/Memory utilization. It requires **Metrics Server** to collect resource metrics.
+
+**HPA Configuration (per service):**
+
+| Setting | Value | Description |
+|---------|-------|-------------|
+| `minReplicas` | 1 | Minimum pods (never scale below) |
+| `maxReplicas` | 5 | Maximum pods (never scale above) |
+| `targetCPUUtilization` | 70% | Scale up when avg CPU > 70% |
+| `targetMemoryUtilization` | 80% | Scale up when avg Memory > 80% |
+
+**How HPA Works:**
+
+```
+Normal Traffic (1 pod)          CPU Spike (HPA scales up)
+┌─────────┐                     ┌─────────┐  ┌─────────┐  ┌─────────┐
+│ Pod     │  CPU: 30%           │ Pod     │  │ Pod     │  │ Pod     │
+└─────────┘                     └─────────┘  └─────────┘  └─────────┘
+                                CPU: 28%     CPU: 28%     CPU: 29%
+     │                               ▲
+     │ Traffic increases             │ Load distributed across pods
+     │ CPU > 70%                     │
+     └───────────────────────────────┘
+```
+
+**Important: `maxSurge` vs `HPA maxReplicas`**
+
+| Setting | When Used | Purpose |
+|---------|-----------|---------|
+| `maxSurge: 1` | During code deployment ONLY | Create 1 extra pod for zero-downtime update |
+| `HPA maxReplicas: 5` | During runtime (traffic spikes) | Scale up to 5 pods when CPU/Memory is high |
+
+**HPA Scaling Behavior:**
+
+```yaml
+behavior:
+  scaleUp:
+    stabilizationWindowSeconds: 60    # Wait 60s before scaling up
+    policies:
+      - type: Pods
+        value: 2                       # Add max 2 pods at a time
+        periodSeconds: 60
+  scaleDown:
+    stabilizationWindowSeconds: 300   # Wait 5min before scaling down
+    policies:
+      - type: Pods
+        value: 1                       # Remove 1 pod at a time
+        periodSeconds: 120
+```
+
+**Validation Commands:**
+```bash
+# Check HPA status
+kubectl get hpa -n ecommerce
+
+# Watch HPA in real-time
+kubectl get hpa -n ecommerce -w
+
+# Check current pod CPU/Memory
+kubectl top pods -n ecommerce
+```
+
+#### Cluster Autoscaler - Deep Dive
+
+Cluster Autoscaler automatically adjusts the number of EC2 worker nodes based on pod scheduling needs.
+
+**When Cluster Autoscaler Scales UP:**
+1. HPA creates more pods due to high CPU
+2. New pods are in **Pending** state (no node has enough resources)
+3. Cluster Autoscaler detects pending pods
+4. Autoscaler adds new EC2 node
+5. Pending pods get scheduled on new node
+
+**When Cluster Autoscaler Scales DOWN:**
+1. Traffic decreases → HPA reduces pods
+2. Node becomes underutilized (< 50% CPU)
+3. Autoscaler waits 5 minutes (stabilization)
+4. Autoscaler terminates underutilized node
+5. Remaining pods moved to other nodes
+
+**Cluster Autoscaler Configuration:**
+
+| Setting | Value | Description |
+|---------|-------|-------------|
+| `scale-down-enabled` | true | Allow removing nodes |
+| `scale-down-delay-after-add` | 5m | Wait 5min after adding node |
+| `scale-down-unneeded-time` | 5m | Node must be idle 5min before removal |
+| `scale-down-utilization-threshold` | 0.5 | Scale down if CPU < 50% |
+
+**Node Group Scaling Limits (Terraform):**
+
+```hcl
+scaling_config {
+  desired_size = 1    # Initial nodes
+  min_size     = 1    # Minimum nodes (never go below)
+  max_size     = 4    # Maximum nodes (CA can scale up to 4)
+}
+```
+
+**Complete Scaling Flow:**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  SCALING UP FLOW                                                            │
+│                                                                             │
+│  1. Traffic increases                                                       │
+│     │                                                                       │
+│     ▼                                                                       │
+│  2. Pod CPU > 70% (detected by Metrics Server)                             │
+│     │                                                                       │
+│     ▼                                                                       │
+│  3. HPA creates more pods (1 → 5)                                          │
+│     │                                                                       │
+│     ▼                                                                       │
+│  4. New pods are "Pending" (node full)                                     │
+│     │                                                                       │
+│     ▼                                                                       │
+│  5. Cluster Autoscaler adds EC2 node (1 → 4)                               │
+│     │                                                                       │
+│     ▼                                                                       │
+│  6. Pods scheduled on new node ✅                                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  SCALING DOWN FLOW                                                          │
+│                                                                             │
+│  1. Traffic decreases                                                       │
+│     │                                                                       │
+│     ▼                                                                       │
+│  2. Pod CPU < 70% (stabilization: 5min)                                    │
+│     │                                                                       │
+│     ▼                                                                       │
+│  3. HPA removes pods (5 → 1)                                               │
+│     │                                                                       │
+│     ▼                                                                       │
+│  4. Node underutilized < 50% (stabilization: 5min)                         │
+│     │                                                                       │
+│     ▼                                                                       │
+│  5. Cluster Autoscaler terminates EC2 node (4 → 1)                         │
+│     │                                                                       │
+│     ▼                                                                       │
+│  6. Cost savings! ✅                                                        │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Validation Commands:**
+```bash
+# Check Cluster Autoscaler logs
+kubectl logs -n kube-system -l app.kubernetes.io/name=cluster-autoscaler --tail=50
+
+# Check current nodes
+kubectl get nodes
+
+# Watch node scaling
+kubectl get nodes -w
+
+# Check node resources
+kubectl top nodes
+```
 
 #### Service Accounts & RBAC
 

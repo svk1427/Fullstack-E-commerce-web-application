@@ -18,10 +18,17 @@ resource "aws_eks_node_group" "eks_ng_public" {
     source_security_group_ids = [module.public_bastion_sg.security_group_id]
   }
 
+  # =============================================================================
+  # SCALING CONFIG - Used by Cluster Autoscaler
+  # =============================================================================
+  # min_size: Minimum nodes (Autoscaler will never scale below this)
+  # max_size: Maximum nodes (Autoscaler will never scale above this)
+  # desired_size: Initial number of nodes
+  # =============================================================================
   scaling_config {
     desired_size = 1
     min_size     = 1
-    max_size     = 2
+    max_size     = 4    # Cluster Autoscaler can scale up to 4 nodes
   }
 
   # Desired max percentage of unavailable worker nodes during node group update.
@@ -40,7 +47,17 @@ resource "aws_eks_node_group" "eks_ng_public" {
     aws_security_group.eks_nodes_sg
   ]
 
-  tags = {
-    Name = "Public-Node-Group"
-  }
+  # =============================================================================
+  # REQUIRED TAGS FOR CLUSTER AUTOSCALER
+  # =============================================================================
+  # These tags allow Cluster Autoscaler to discover and manage the node group
+  # =============================================================================
+  tags = merge(
+    local.common_tags,
+    {
+      Name                                                  = "Public-Node-Group"
+      "k8s.io/cluster-autoscaler/enabled"                   = "true"
+      "k8s.io/cluster-autoscaler/${local.eks_cluster_name}" = "owned"
+    }
+  )
 }

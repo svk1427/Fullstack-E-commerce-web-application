@@ -1,15 +1,21 @@
 {{- if .Values.auth.autoscaling.enabled }}
+# =============================================================================
+# HORIZONTAL POD AUTOSCALER - AUTH SERVICE
+# =============================================================================
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: {{ printf "%s-hpa" .Values.auth.label }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.auth.label }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: {{ printf "%s-depl" .Values.auth.label }}  
   minReplicas: {{ .Values.auth.autoscaling.minReplicas | default 1 }}
-  maxReplicas: {{ .Values.auth.autoscaling.maxReplicas | default 3 }}
+  maxReplicas: {{ .Values.auth.autoscaling.maxReplicas | default 5 }}
   metrics:
   - type: Resource
     resource:
@@ -23,4 +29,25 @@ spec:
       target:
         type: Utilization
         averageUtilization: {{ .Values.auth.autoscaling.targetMemoryUtilization | default 80 }}
+  # ---------------------------------------------------------------------------
+  # SCALING BEHAVIOR (prevents flapping)
+  # ---------------------------------------------------------------------------
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 120
+      selectPolicy: Min
 {{- end }}
