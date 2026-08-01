@@ -1,0 +1,636 @@
+# =============================================================================
+# NETWORK POLICIES - MICROSERVICES SECURITY
+# =============================================================================
+# Controls which pods can communicate with which other pods
+# Implements "Zero Trust" - deny all by default, allow only what's needed
+# =============================================================================
+{{- if .Values.networkPolicies.enabled }}
+
+# =============================================================================
+# DEFAULT DENY ALL - Base security policy
+# =============================================================================
+# Denies all ingress and egress traffic by default
+# Other policies will "punch holes" for allowed traffic
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    policy-type: default
+spec:
+  podSelector: {}  # Applies to all pods in namespace
+  policyTypes:
+    - Ingress
+    - Egress
+
+---
+# =============================================================================
+# ALLOW DNS - Required for service discovery
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    policy-type: system
+spec:
+  podSelector: {}  # Applies to all pods
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+---
+# =============================================================================
+# API GATEWAY - Entry point for all traffic
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-gateway-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    app: gateway
+spec:
+  podSelector:
+    matchLabels:
+      app: gateway
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from ALB/Ingress Controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: TCP
+          port: 8080
+    # Allow from any external source (internet via ALB)
+    - ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    # Allow to all backend services
+    - to:
+        - podSelector:
+            matchLabels:
+              app: auth
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - podSelector:
+            matchLabels:
+              app: user
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - podSelector:
+            matchLabels:
+              app: product
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - podSelector:
+            matchLabels:
+              app: category
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - podSelector:
+            matchLabels:
+              app: cart
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - podSelector:
+            matchLabels:
+              app: order
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - podSelector:
+            matchLabels:
+              app: notification
+      ports:
+        - protocol: TCP
+          port: 8080
+    # Allow to Service Registry (Eureka)
+    - to:
+        - podSelector:
+            matchLabels:
+              app: registry
+      ports:
+        - protocol: TCP
+          port: 8761
+
+---
+# =============================================================================
+# SERVICE REGISTRY (EUREKA) - Service Discovery
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: service-registry-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    app: registry
+spec:
+  podSelector:
+    matchLabels:
+      app: registry
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from all microservices (they register themselves)
+    - from:
+        - podSelector: {}  # Any pod in same namespace
+      ports:
+        - protocol: TCP
+          port: 8761
+  egress:
+    # Allow to all microservices (health checks)
+    - to:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8080
+
+---
+# =============================================================================
+# AUTH SERVICE - Authentication
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: auth-service-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    app: auth
+spec:
+  podSelector:
+    matchLabels:
+      app: auth
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Only API Gateway can reach auth service
+    - from:
+        - podSelector:
+            matchLabels:
+              app: gateway
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    # Auth can reach User Service (for user validation)
+    - to:
+        - podSelector:
+            matchLabels:
+              app: user
+      ports:
+        - protocol: TCP
+          port: 8080
+    # Auth can reach Notification Service (for OTP/email)
+    - to:
+        - podSelector:
+            matchLabels:
+              app: notification
+      ports:
+        - protocol: TCP
+          port: 8080
+    # Auth can reach Service Registry
+    - to:
+        - podSelector:
+            matchLabels:
+              app: registry
+      ports:
+        - protocol: TCP
+          port: 8761
+    # Allow to external databases (MongoDB)
+    {{- if .Values.networkPolicies.allowExternalDB }}
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 27017
+    {{- end }}
+
+---
+# =============================================================================
+# USER SERVICE
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: user-service-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    app: user
+spec:
+  podSelector:
+    matchLabels:
+      app: user
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # From API Gateway and Auth Service
+    - from:
+        - podSelector:
+            matchLabels:
+              app: gateway
+        - podSelector:
+            matchLabels:
+              app: auth
+        - podSelector:
+            matchLabels:
+              app: order
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: registry
+      ports:
+        - protocol: TCP
+          port: 8761
+    {{- if .Values.networkPolicies.allowExternalDB }}
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 27017
+    {{- end }}
+
+---
+# =============================================================================
+# PRODUCT SERVICE
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: product-service-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    app: product
+spec:
+  podSelector:
+    matchLabels:
+      app: product
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: gateway
+        - podSelector:
+            matchLabels:
+              app: cart
+        - podSelector:
+            matchLabels:
+              app: order
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: registry
+      ports:
+        - protocol: TCP
+          port: 8761
+    - to:
+        - podSelector:
+            matchLabels:
+              app: category
+      ports:
+        - protocol: TCP
+          port: 8080
+    {{- if .Values.networkPolicies.allowExternalDB }}
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 27017
+    {{- end }}
+
+---
+# =============================================================================
+# CATEGORY SERVICE
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: category-service-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    app: category
+spec:
+  podSelector:
+    matchLabels:
+      app: category
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: gateway
+        - podSelector:
+            matchLabels:
+              app: product
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: registry
+      ports:
+        - protocol: TCP
+          port: 8761
+    {{- if .Values.networkPolicies.allowExternalDB }}
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 27017
+    {{- end }}
+
+---
+# =============================================================================
+# CART SERVICE
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cart-service-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    app: cart
+spec:
+  podSelector:
+    matchLabels:
+      app: cart
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: gateway
+        - podSelector:
+            matchLabels:
+              app: order
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: registry
+      ports:
+        - protocol: TCP
+          port: 8761
+    - to:
+        - podSelector:
+            matchLabels:
+              app: product
+      ports:
+        - protocol: TCP
+          port: 8080
+    {{- if .Values.networkPolicies.allowExternalDB }}
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 27017
+    {{- end }}
+
+---
+# =============================================================================
+# ORDER SERVICE
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: order-service-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    app: order
+spec:
+  podSelector:
+    matchLabels:
+      app: order
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: gateway
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: registry
+      ports:
+        - protocol: TCP
+          port: 8761
+    - to:
+        - podSelector:
+            matchLabels:
+              app: cart
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - podSelector:
+            matchLabels:
+              app: product
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - podSelector:
+            matchLabels:
+              app: user
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - podSelector:
+            matchLabels:
+              app: notification
+      ports:
+        - protocol: TCP
+          port: 8080
+    {{- if .Values.networkPolicies.allowExternalDB }}
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 27017
+    {{- end }}
+
+---
+# =============================================================================
+# NOTIFICATION SERVICE
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: notification-service-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    app: notification
+spec:
+  podSelector:
+    matchLabels:
+      app: notification
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: gateway
+        - podSelector:
+            matchLabels:
+              app: auth
+        - podSelector:
+            matchLabels:
+              app: order
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: registry
+      ports:
+        - protocol: TCP
+          port: 8761
+    # Allow SMTP/Email services (external)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 587   # SMTP
+        - protocol: TCP
+          port: 465   # SMTPS
+        - protocol: TCP
+          port: 443   # HTTPS (AWS SES API)
+
+---
+# =============================================================================
+# WEB APP (FRONTEND) - If running in cluster
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: web-app-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    app: web-app
+spec:
+  podSelector:
+    matchLabels:
+      app: web-app
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from ALB/external
+    - ports:
+        - protocol: TCP
+          port: 80
+  egress:
+    # Frontend only serves static files, no backend calls from pod
+    # (Browser makes API calls, not the nginx container)
+    []
+
+{{- end }}

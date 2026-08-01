@@ -4,6 +4,19 @@
 # Shared resources: Service Accounts, RBAC, Network Policies
 # =============================================================================
 # =============================================================================
+# NETWORK POLICIES
+# =============================================================================
+# Control pod-to-pod communication (Zero Trust networking)
+# Requires: AWS VPC CNI with Network Policy enabled
+# =============================================================================
+networkPolicies:
+  # Enable/disable network policies
+  # Set to false for development, true for production
+  enabled: false
+  # Allow pods to connect to external databases (MongoDB Atlas, RDS, etc.)
+  # Set to true if your DB is outside the cluster
+  allowExternalDB: true
+# =============================================================================
 # SERVICE ACCOUNTS
 # =============================================================================
 # Each service gets its own identity for:
@@ -50,19 +63,25 @@ serviceAccounts:
 
     automountToken: true
   # ---------------------------------------------------------------------------
-  # Category Service Account
-  # ---------------------------------------------------------------------------
   - name: category-sa
+    # ---------------------------------------------------------------------------
+
+    # Category Service Account
+
     automountToken: true
-  # ---------------------------------------------------------------------------
-  # User Service Account
   # ---------------------------------------------------------------------------
   - name: user-sa
+    # ---------------------------------------------------------------------------
+
+    # User Service Account
+
     automountToken: true
   # ---------------------------------------------------------------------------
-  # Notification Service Account
-  # ---------------------------------------------------------------------------
   - name: notification-sa
+    # ---------------------------------------------------------------------------
+
+    # Notification Service Account
+
     automountToken: true
     # Uncomment for SES access (send emails)
   # ---------------------------------------------------------------------------
@@ -73,11 +92,14 @@ serviceAccounts:
 
     automountToken: true
   # ---------------------------------------------------------------------------
-  # Web App Service Account
-  # ---------------------------------------------------------------------------
   - name: web-app-sa
+    # ---------------------------------------------------------------------------
+
+    # Web App Service Account
+
     automountToken: false # Frontend doesn't need K8s API access
 # =============================================================================
+
 # RBAC ROLES
 # =============================================================================
 # Define permissions for each role
@@ -93,25 +115,31 @@ roles:
         resources: ["services", "endpoints", "pods"]
         verbs: ["get", "list", "watch"]
   # ---------------------------------------------------------------------------
-  # Secret reader role (for services that need secrets)
-  # ---------------------------------------------------------------------------
   - name: secret-reader-role
+    # ---------------------------------------------------------------------------
+
+    # Secret reader role (for services that need secrets)
+
     rules:
       - apiGroups: [""]
         resources: ["secrets"]
         verbs: ["get", "list"]
   # ---------------------------------------------------------------------------
-  # ConfigMap reader role
-  # ---------------------------------------------------------------------------
   - name: configmap-reader-role
+    # ---------------------------------------------------------------------------
+
+    # ConfigMap reader role
+
     rules:
       - apiGroups: [""]
         resources: ["configmaps"]
         verbs: ["get", "list", "watch"]
   # ---------------------------------------------------------------------------
-  # Full read access (for monitoring/debugging)
-  # ---------------------------------------------------------------------------
   - name: read-all-role
+    # ---------------------------------------------------------------------------
+
+    # Full read access (for monitoring/debugging)
+
     rules:
       - apiGroups: [""]
         resources: ["pods", "services", "endpoints", "configmaps"]
@@ -120,6 +148,7 @@ roles:
         resources: ["deployments", "replicasets"]
         verbs: ["get", "list", "watch"]
 # =============================================================================
+
 # ROLE BINDINGS
 # =============================================================================
 # Connect service accounts to roles
@@ -129,16 +158,19 @@ roleBindings:
   - name: gateway-service-discovery
     serviceAccount: gateway-sa
     role: service-discovery-role
-  # Auth service reads secrets
   - name: auth-secret-reader
+    # Auth service reads secrets
+
     serviceAccount: auth-sa
     role: secret-reader-role
-  # Registry (Eureka) needs to see all services
   - name: registry-service-discovery
+    # Registry (Eureka) needs to see all services
+
     serviceAccount: registry-sa
     role: service-discovery-role
-  # All services read configmaps
   - name: gateway-configmap-reader
+    # All services read configmaps
+
     serviceAccount: gateway-sa
     role: configmap-reader-role
   - name: auth-configmap-reader
@@ -162,3 +194,81 @@ roleBindings:
   - name: notification-configmap-reader
     serviceAccount: notification-sa
     role: configmap-reader-role
+# =============================================================================
+
+# TEAM RBAC - USER AND GROUP ACCESS
+# =============================================================================
+# Define who can access the cluster and what they can do
+# Users/Groups come from your identity provider (AWS IAM, OIDC, Okta, etc.)
+# =============================================================================
+teamRBAC:
+  enabled: true
+  # ---------------------------------------------------------------------------
+
+  # CLUSTER ADMINS - Full cluster access (use sparingly!)
+  # ---------------------------------------------------------------------------
+  clusterAdmins:
+    users:
+    # - "admin@company.com"
+    # - "platform-lead@company.com"
+    groups:
+    # - "platform-admins"
+  # ---------------------------------------------------------------------------
+  # SRE - Operations and troubleshooting
+  # Can: restart pods, exec, view secrets, scale, cordon nodes
+  # ---------------------------------------------------------------------------
+  sre:
+    users:
+    # - "sre1@company.com"
+    # - "sre2@company.com"
+    groups:
+    # - "sre-team"
+    # - "oncall-engineers"
+  # ---------------------------------------------------------------------------
+  # DEVOPS - CI/CD and deployments
+  # Can: deploy, update configs, manage services
+  # Cannot: view secrets content, access nodes
+  # ---------------------------------------------------------------------------
+  devops:
+    users:
+    # - "devops1@company.com"
+    groups:
+    # - "devops-team"
+  # ---------------------------------------------------------------------------
+  # DEVELOPERS - View and debug
+  # Can: view resources, exec into pods, port-forward, view logs
+  # Cannot: modify deployments, view secrets
+  # ---------------------------------------------------------------------------
+  developers:
+    users:
+    # - "dev1@company.com"
+    # - "dev2@company.com"
+    groups:
+    # - "backend-developers"
+    # - "frontend-developers"
+  # ---------------------------------------------------------------------------
+  # VIEWERS - Read-only access
+  # Can: view all resources except secrets
+  # Cannot: exec, modify anything
+  # ---------------------------------------------------------------------------
+  viewers:
+    users:
+    # - "qa@company.com"
+    # - "product-manager@company.com"
+    groups:
+    # - "qa-team"
+    # - "stakeholders"
+  # ---------------------------------------------------------------------------
+  # NAMESPACE-SPECIFIC BINDINGS
+  # For users/groups that only need access to specific namespaces
+  # ---------------------------------------------------------------------------
+  namespaceBindings:
+
+# Example: Developer access to dev namespace only
+# - namespace: purely-dev
+#   role: developer
+#   user: "junior-dev@company.com"
+# Example: Team access to their namespace
+# - namespace: purely-staging
+#   role: namespace-admin
+#   group: "staging-team"

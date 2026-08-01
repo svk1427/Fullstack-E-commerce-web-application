@@ -1,0 +1,91 @@
+# =============================================================================
+# MONITORING STACK - DEVELOPMENT VALUES
+# =============================================================================
+# Reduced resources for development environment
+# =============================================================================
+global:
+  namespace: monitoring
+  environment: dev
+# Fluent Bit - Log Collector
+fluentbit:
+  enabled: true
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+# Loki - Log Aggregation
+loki:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  storage:
+    enabled: true
+    size: 5Gi
+    storageClass: gp2
+# Prometheus - Metrics
+prometheus:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  storage:
+    enabled: true
+    size: 10Gi
+    storageClass: gp2
+    retentionDays: 7
+# Kube State Metrics
+kubeStateMetrics:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+# Node Exporter
+nodeExporter:
+  enabled: true
+  resources:
+    requests:
+      cpu: 25m
+      memory: 16Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+# Grafana - Visualization
+grafana:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  storage:
+    enabled: true
+    size: 2Gi
+    storageClass: gp2
+# Alertmanager - Disabled for dev
+alertmanager:
+  enabled: false
+# Ingress - Disabled for dev (use port-forward)
+ingress:
+  enabled: false

@@ -1,0 +1,41 @@
+# =============================================================================
+# INGRESS FOR MONITORING SERVICES
+# =============================================================================
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: monitoring-ingress
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: monitoring-ingress
+  annotations:
+    {{- toYaml .Values.ingress.annotations | nindent 4 }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+    {{- if .Values.grafana.enabled }}
+    - host: {{ .Values.ingress.hosts.grafana }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.grafana.label }}
+                port:
+                  number: {{ .Values.grafana.service.port }}
+    {{- end }}
+    {{- if .Values.prometheus.enabled }}
+    - host: {{ .Values.ingress.hosts.prometheus }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.prometheus.label }}
+                port:
+                  number: {{ .Values.prometheus.service.port }}
+    {{- end }}
+{{- end }}

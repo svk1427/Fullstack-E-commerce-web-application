@@ -1,0 +1,321 @@
+# =============================================================================
+# TEAM RBAC - CLUSTER ROLES FOR DIFFERENT TEAM MEMBERS
+# =============================================================================
+# Defines permissions for: Admin, SRE, DevOps, Developer, Viewer
+# These are ClusterRoles that can be bound to users/groups in any namespace
+# =============================================================================
+
+# =============================================================================
+# 1. CLUSTER ADMIN - Full cluster access (use sparingly!)
+# =============================================================================
+# Who: Platform team leads, emergency access
+# What: Everything - create, delete, modify all resources cluster-wide
+# =============================================================================
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: purely-cluster-admin
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    rbac.purely.io/role-type: admin
+rules:
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["*"]
+  - nonResourceURLs: ["*"]
+    verbs: ["*"]
+
+---
+# =============================================================================
+# 2. SRE ROLE - Operations and troubleshooting access
+# =============================================================================
+# Who: Site Reliability Engineers, On-call engineers
+# What: Full access to workloads, can restart pods, view secrets, access nodes
+# =============================================================================
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: purely-sre
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    rbac.purely.io/role-type: sre
+rules:
+  # Full access to workloads
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch", "update", "patch", "delete"]
+  
+  # Full pod access (restart, exec, logs)
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "pods/exec", "pods/portforward"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  
+  # Service and networking
+  - apiGroups: [""]
+    resources: ["services", "endpoints"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  
+  # ConfigMaps and Secrets (for troubleshooting)
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  
+  # Events and logs
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+  
+  # Node access (view and cordon/uncordon)
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  
+  # PVCs
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "update", "patch", "delete"]
+  
+  # HPA and scaling
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  
+  # Jobs and CronJobs
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  
+  # RBAC (view only)
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
+    verbs: ["get", "list", "watch"]
+  
+  # Namespaces
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+
+---
+# =============================================================================
+# 3. DEVOPS ROLE - CI/CD and deployment access
+# =============================================================================
+# Who: DevOps engineers, CI/CD pipelines
+# What: Deploy applications, manage configs, cannot access secrets directly
+# =============================================================================
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: purely-devops
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    rbac.purely.io/role-type: devops
+rules:
+  # Deployments - full CRUD
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  
+  # Pods - view and delete (for rollouts)
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get", "list"]
+  
+  # Services
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  
+  # ConfigMaps - full access
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  
+  # Secrets - create/update only (for deployments), no read
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create", "update", "patch", "delete"]
+  
+  # Ingress
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  
+  # HPA
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  
+  # PDB
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  
+  # Jobs
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  
+  # Service Accounts (for deployments)
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    verbs: ["get", "list", "watch", "create"]
+  
+  # Events
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+  
+  # Namespaces - view only
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+
+---
+# =============================================================================
+# 4. DEVELOPER ROLE - Development and debugging access
+# =============================================================================
+# Who: Application developers
+# What: View resources, exec into pods, view logs, port-forward
+# =============================================================================
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: purely-developer
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    rbac.purely.io/role-type: developer
+rules:
+  # View deployments and workloads
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+  
+  # Pods - view, logs, exec, port-forward (for debugging)
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]  # Required for kubectl exec
+  - apiGroups: [""]
+    resources: ["pods/portforward"]
+    verbs: ["create"]  # Required for kubectl port-forward
+  
+  # Services - view
+  - apiGroups: [""]
+    resources: ["services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+  
+  # ConfigMaps - view (no secrets!)
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+  
+  # Ingress - view
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+  
+  # Events - for troubleshooting
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+  
+  # HPA - view
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch"]
+  
+  # Jobs - view
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  
+  # Namespaces - view
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+
+---
+# =============================================================================
+# 5. VIEWER ROLE - Read-only access
+# =============================================================================
+# Who: QA, Product managers, Stakeholders
+# What: View everything except secrets
+# =============================================================================
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: purely-viewer
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    rbac.purely.io/role-type: viewer
+rules:
+  # View all common resources
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "services", "endpoints", "configmaps", "persistentvolumeclaims", "events", "namespaces"]
+    verbs: ["get", "list", "watch"]
+  
+  # View workloads
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+  
+  # View networking
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch"]
+  
+  # View autoscaling
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch"]
+  
+  # View jobs
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+
+---
+# =============================================================================
+# 6. NAMESPACE ADMIN - Full access within specific namespace(s)
+# =============================================================================
+# Who: Team leads for their team's namespace
+# What: Everything within their namespace, not cluster-wide
+# =============================================================================
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: purely-namespace-admin
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    rbac.purely.io/role-type: namespace-admin
+rules:
+  # All resources within namespace
+  - apiGroups: [""]
+    resources: ["*"]
+    verbs: ["*"]
+  - apiGroups: ["apps"]
+    resources: ["*"]
+    verbs: ["*"]
+  - apiGroups: ["batch"]
+    resources: ["*"]
+    verbs: ["*"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["*"]
+    verbs: ["*"]
+  - apiGroups: ["autoscaling"]
+    resources: ["*"]
+    verbs: ["*"]
+  - apiGroups: ["policy"]
+    resources: ["*"]
+    verbs: ["*"]

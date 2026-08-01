@@ -1,0 +1,13 @@
+# =============================================================================
+# NODE EXPORTER - RBAC
+# =============================================================================
+{{- if .Values.nodeExporter.enabled }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.nodeExporter.label }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Values.nodeExporter.label }}
+{{- end }}

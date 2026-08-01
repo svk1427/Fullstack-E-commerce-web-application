@@ -1,0 +1,106 @@
+# =============================================================================
+# NODE EXPORTER - DAEMONSET
+# =============================================================================
+# Runs on every node to collect hardware and OS metrics
+# =============================================================================
+{{- if .Values.nodeExporter.enabled }}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ .Values.nodeExporter.label }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Values.nodeExporter.label }}
+    component: metrics
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.nodeExporter.label }}
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.nodeExporter.label }}
+        component: metrics
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9100"
+    spec:
+      serviceAccountName: {{ .Values.nodeExporter.label }}
+      hostPID: true
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- with .Values.nodeExporter.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+      containers:
+        - name: {{ .Values.nodeExporter.label }}
+          image: "{{ .Values.nodeExporter.image.repository }}:{{ .Values.nodeExporter.image.tag }}"
+          imagePullPolicy: {{ .Values.nodeExporter.image.pullPolicy }}
+          args:
+            - --path.procfs=/host/proc
+            - --path.sysfs=/host/sys
+            - --path.rootfs=/host/root
+            - --web.listen-address=:9100
+            - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+            - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$
+          ports:
+            - containerPort: 9100
+              hostPort: 9100
+              name: metrics
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.nodeExporter.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: proc
+              mountPath: /host/proc
+              readOnly: true
+            - name: sys
+              mountPath: /host/sys
+              readOnly: true
+            - name: root
+              mountPath: /host/root
+              mountPropagation: HostToContainer
+              readOnly: true
+      volumes:
+        - name: proc
+          hostPath:
+            path: {{ .Values.nodeExporter.hostPaths.proc }}
+        - name: sys
+          hostPath:
+            path: {{ .Values.nodeExporter.hostPaths.sys }}
+        - name: root
+          hostPath:
+            path: {{ .Values.nodeExporter.hostPaths.rootfs }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.nodeExporter.label }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Values.nodeExporter.label }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9100"
+spec:
+  type: {{ .Values.nodeExporter.service.type }}
+  ports:
+    - port: {{ .Values.nodeExporter.service.port }}
+      targetPort: 9100
+      protocol: TCP
+      name: metrics
+  selector:
+    app: {{ .Values.nodeExporter.label }}
+{{- end }}

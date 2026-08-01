@@ -1,0 +1,246 @@
+# =============================================================================
+# TEAM RBAC - CLUSTER ROLE BINDINGS FOR USERS AND GROUPS
+# =============================================================================
+# Binds ClusterRoles to specific users and groups
+# Users/Groups come from your identity provider (AWS IAM, OIDC, etc.)
+# =============================================================================
+
+{{- if .Values.teamRBAC.enabled }}
+
+# =============================================================================
+# CLUSTER ADMIN BINDINGS
+# =============================================================================
+{{- range .Values.teamRBAC.clusterAdmins.users }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: purely-cluster-admin-{{ . | replace "@" "-" | replace "." "-" }}
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    rbac.purely.io/role-type: admin
+subjects:
+  - kind: User
+    name: {{ . }}
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: purely-cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
+
+{{- range .Values.teamRBAC.clusterAdmins.groups }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: purely-cluster-admin-group-{{ . | replace "@" "-" | replace "." "-" }}
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    rbac.purely.io/role-type: admin
+subjects:
+  - kind: Group
+    name: {{ . }}
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: purely-cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
+
+# =============================================================================
+# SRE BINDINGS
+# =============================================================================
+{{- range .Values.teamRBAC.sre.users }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: purely-sre-{{ . | replace "@" "-" | replace "." "-" }}
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    rbac.purely.io/role-type: sre
+subjects:
+  - kind: User
+    name: {{ . }}
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: purely-sre
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
+
+{{- range .Values.teamRBAC.sre.groups }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: purely-sre-group-{{ . | replace "@" "-" | replace "." "-" }}
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    rbac.purely.io/role-type: sre
+subjects:
+  - kind: Group
+    name: {{ . }}
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: purely-sre
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
+
+# =============================================================================
+# DEVOPS BINDINGS
+# =============================================================================
+{{- range .Values.teamRBAC.devops.users }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: purely-devops-{{ . | replace "@" "-" | replace "." "-" }}
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    rbac.purely.io/role-type: devops
+subjects:
+  - kind: User
+    name: {{ . }}
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: purely-devops
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
+
+{{- range .Values.teamRBAC.devops.groups }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: purely-devops-group-{{ . | replace "@" "-" | replace "." "-" }}
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    rbac.purely.io/role-type: devops
+subjects:
+  - kind: Group
+    name: {{ . }}
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: purely-devops
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
+
+# =============================================================================
+# DEVELOPER BINDINGS (CLUSTER-WIDE)
+# =============================================================================
+{{- range .Values.teamRBAC.developers.users }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: purely-developer-{{ . | replace "@" "-" | replace "." "-" }}
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    rbac.purely.io/role-type: developer
+subjects:
+  - kind: User
+    name: {{ . }}
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: purely-developer
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
+
+{{- range .Values.teamRBAC.developers.groups }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: purely-developer-group-{{ . | replace "@" "-" | replace "." "-" }}
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    rbac.purely.io/role-type: developer
+subjects:
+  - kind: Group
+    name: {{ . }}
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: purely-developer
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
+
+# =============================================================================
+# VIEWER BINDINGS
+# =============================================================================
+{{- range .Values.teamRBAC.viewers.users }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: purely-viewer-{{ . | replace "@" "-" | replace "." "-" }}
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    rbac.purely.io/role-type: viewer
+subjects:
+  - kind: User
+    name: {{ . }}
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: purely-viewer
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
+
+{{- range .Values.teamRBAC.viewers.groups }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: purely-viewer-group-{{ . | replace "@" "-" | replace "." "-" }}
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    rbac.purely.io/role-type: viewer
+subjects:
+  - kind: Group
+    name: {{ . }}
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: purely-viewer
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
+
+# =============================================================================
+# NAMESPACE-SPECIFIC ROLE BINDINGS
+# =============================================================================
+# For developers/teams that only need access to specific namespaces
+{{- range .Values.teamRBAC.namespaceBindings }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: purely-{{ .role }}-{{ .user | default .group | replace "@" "-" | replace "." "-" }}
+  namespace: {{ .namespace }}
+  labels:
+    app.kubernetes.io/part-of: purely-ecommerce
+    rbac.purely.io/role-type: {{ .role }}
+subjects:
+  {{- if .user }}
+  - kind: User
+    name: {{ .user }}
+    apiGroup: rbac.authorization.k8s.io
+  {{- end }}
+  {{- if .group }}
+  - kind: Group
+    name: {{ .group }}
+    apiGroup: rbac.authorization.k8s.io
+  {{- end }}
+roleRef:
+  kind: ClusterRole
+  name: purely-{{ .role }}
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
+
+{{- end }}

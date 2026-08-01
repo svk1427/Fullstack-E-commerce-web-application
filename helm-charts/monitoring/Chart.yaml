@@ -1,0 +1,21 @@
+# =============================================================================
+# MONITORING STACK - HELM CHART
+# =============================================================================
+# Complete monitoring solution with Fluent Bit, Prometheus, and Grafana
+# =============================================================================
+apiVersion: v2
+name: monitoring
+description: Monitoring stack for Purely E-Commerce (Fluent Bit, Prometheus, Grafana)
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - monitoring
+  - logging
+  - metrics
+  - prometheus
+  - grafana
+  - fluent-bit
+  - observability
+maintainers:
+  - name: Purely Team

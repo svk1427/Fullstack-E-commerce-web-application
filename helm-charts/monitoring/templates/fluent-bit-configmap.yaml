@@ -1,0 +1,141 @@
+# =============================================================================
+# FLUENT BIT - CONFIGMAP
+# =============================================================================
+{{- if .Values.fluentbit.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.fluentbit.label }}-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Values.fluentbit.label }}
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Daemon          Off
+        Flush           1
+        Log_Level       info
+        Parsers_File    parsers.conf
+        HTTP_Server     On
+        HTTP_Listen     0.0.0.0
+        HTTP_Port       2020
+        Health_Check    On
+
+    @INCLUDE input-kubernetes.conf
+    @INCLUDE filter-kubernetes.conf
+    @INCLUDE output.conf
+
+  input-kubernetes.conf: |
+    [INPUT]
+        Name              tail
+        Tag               kube.*
+        Path              /var/log/containers/*.log
+        Parser            docker
+        DB                /var/log/flb_kube.db
+        Mem_Buf_Limit     50MB
+        Skip_Long_Lines   On
+        Refresh_Interval  10
+        Read_from_Head    True
+
+    [INPUT]
+        Name              tail
+        Tag               syslog.*
+        Path              /var/log/syslog
+        Parser            syslog
+        DB                /var/log/flb_syslog.db
+        Mem_Buf_Limit     5MB
+        Skip_Long_Lines   On
+        Refresh_Interval  10
+
+  filter-kubernetes.conf: |
+    [FILTER]
+        Name                kubernetes
+        Match               kube.*
+        Kube_URL            https://kubernetes.default.svc:443
+        Kube_CA_File        /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        Kube_Token_File     /var/run/secrets/kubernetes.io/serviceaccount/token
+        Kube_Tag_Prefix     kube.var.log.containers.
+        Merge_Log           On
+        Merge_Log_Key       log_processed
+        Keep_Log            Off
+        K8S-Logging.Parser  On
+        K8S-Logging.Exclude On
+        Labels              On
+        Annotations         Off
+        Buffer_Size         0
+
+    [FILTER]
+        Name          nest
+        Match         kube.*
+        Operation     lift
+        Nested_under  kubernetes
+        Add_prefix    kubernetes_
+
+    [FILTER]
+        Name          modify
+        Match         kube.*
+        Remove        stream
+        Remove        _p
+
+  output.conf: |
+    {{- if .Values.fluentbit.outputs.loki.enabled }}
+    [OUTPUT]
+        Name                   loki
+        Match                  kube.*
+        Host                   {{ .Values.fluentbit.outputs.loki.host }}
+        Port                   {{ .Values.fluentbit.outputs.loki.port }}
+        Labels                 job=fluent-bit, namespace=$kubernetes_namespace_name, pod=$kubernetes_pod_name, container=$kubernetes_container_name, app=$kubernetes_labels_app
+        Remove_Keys            kubernetes_namespace_name,kubernetes_pod_name,kubernetes_container_name,kubernetes_labels_app
+        Label_Keys             $namespace,$pod,$container,$app
+        Auto_Kubernetes_Labels Off
+        Line_Format            json
+        Retry_Limit            3
+    {{- end }}
+    {{- if .Values.fluentbit.outputs.elasticsearch.enabled }}
+    [OUTPUT]
+        Name            es
+        Match           kube.*
+        Host            {{ .Values.fluentbit.outputs.elasticsearch.host }}
+        Port            {{ .Values.fluentbit.outputs.elasticsearch.port }}
+        Logstash_Format On
+        Logstash_Prefix kubernetes
+        Retry_Limit     3
+        Replace_Dots    On
+        Suppress_Type_Name On
+    {{- end }}
+    {{- if .Values.fluentbit.outputs.stdout.enabled }}
+    [OUTPUT]
+        Name            stdout
+        Match           *
+        Format          json_lines
+    {{- end }}
+
+  parsers.conf: |
+    [PARSER]
+        Name        docker
+        Format      json
+        Time_Key    time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L
+        Time_Keep   On
+
+    [PARSER]
+        Name        syslog
+        Format      regex
+        Regex       ^\<(?<pri>[0-9]+)\>(?<time>[^ ]* {1,2}[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$
+        Time_Key    time
+        Time_Format %b %d %H:%M:%S
+
+    [PARSER]
+        Name        json
+        Format      json
+        Time_Key    time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L
+        Time_Keep   On
+
+    [PARSER]
+        Name        java_multiline
+        Format      regex
+        Regex       /^(?<time>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{3})\s+(?<level>[^\s]+)\s+(?<pid>\d+)\s+---\s+\[(?<thread>[^\]]+)\]\s+(?<class>[^\s]+)\s*:\s*(?<message>.*)/
+        Time_Key    time
+        Time_Format %Y-%m-%d %H:%M:%S.%L
+{{- end }}

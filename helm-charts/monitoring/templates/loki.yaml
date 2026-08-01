@@ -1,0 +1,101 @@
+# =============================================================================
+# LOKI - LOG AGGREGATION (FOR GRAFANA)
+# =============================================================================
+{{- if .Values.loki.enabled }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.loki.label }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Values.loki.label }}
+    component: logging
+spec:
+  serviceName: {{ .Values.loki.label }}
+  replicas: {{ .Values.loki.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.loki.label }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.loki.label }}
+        component: logging
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3100"
+        prometheus.io/path: "/metrics"
+    spec:
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: {{ .Values.loki.label }}
+          image: "{{ .Values.loki.image.repository }}:{{ .Values.loki.image.tag }}"
+          imagePullPolicy: {{ .Values.loki.image.pullPolicy }}
+          args:
+            - -config.file=/etc/loki/loki.yaml
+          ports:
+            - containerPort: 3100
+              name: http
+              protocol: TCP
+            - containerPort: 9095
+              name: grpc
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.loki.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 3100
+            initialDelaySeconds: 45
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: 3100
+            initialDelaySeconds: 45
+            periodSeconds: 10
+          volumeMounts:
+            - name: config
+              mountPath: /etc/loki
+            - name: data
+              mountPath: /loki
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Values.loki.label }}-config
+  {{- if .Values.loki.storage.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.loki.storage.storageClass }}
+        storageClassName: {{ .Values.loki.storage.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.loki.storage.size }}
+  {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.loki.label }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Values.loki.label }}
+spec:
+  type: {{ .Values.loki.service.type }}
+  ports:
+    - port: {{ .Values.loki.service.port }}
+      targetPort: 3100
+      protocol: TCP
+      name: http
+  selector:
+    app: {{ .Values.loki.label }}
+{{- end }}

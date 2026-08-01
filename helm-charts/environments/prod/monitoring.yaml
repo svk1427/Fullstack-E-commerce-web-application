@@ -1,0 +1,118 @@
+# =============================================================================
+# MONITORING STACK - PRODUCTION VALUES
+# =============================================================================
+# Full resources for production environment
+# =============================================================================
+global:
+  namespace: monitoring
+  environment: prod
+# Fluent Bit - Log Collector
+fluentbit:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+# Loki - Log Aggregation
+loki:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  storage:
+    enabled: true
+    size: 50Gi
+    storageClass: gp2
+# Prometheus - Metrics
+prometheus:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+  storage:
+    enabled: true
+    size: 100Gi
+    storageClass: gp2
+    retentionDays: 30
+# Kube State Metrics
+kubeStateMetrics:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+# Node Exporter
+nodeExporter:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+# Grafana - Visualization
+grafana:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  storage:
+    enabled: true
+    size: 10Gi
+    storageClass: gp2
+  admin:
+    user: admin
+    # Set password using: --set grafana.admin.password=<secure-password>
+
+    password: ""
+# Alertmanager - Enabled for production
+alertmanager:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  notifications:
+    slack:
+      enabled: false
+      webhookUrl: ""
+      channel: "#alerts"
+# Ingress - Enable for production
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: /api/health
+    alb.ingress.kubernetes.io/certificate-arn: "" # Add your ACM certificate ARN
+  hosts:
+    grafana: grafana.purely.internal
+    prometheus: prometheus.purely.internal

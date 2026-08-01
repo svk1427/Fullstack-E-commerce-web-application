@@ -95,6 +95,7 @@ resource "aws_eks_addon" "kube_proxy" {
 # -----------------------------------------------------------------------------
 # Provides pod networking using AWS VPC native networking
 # Each pod gets an IP address from the VPC subnet
+# Network Policy enabled for security
 # -----------------------------------------------------------------------------
 resource "aws_eks_addon" "vpc_cni" {
   cluster_name                = aws_eks_cluster.purely_cluster.name
@@ -109,6 +110,8 @@ resource "aws_eks_addon" "vpc_cni" {
       ENABLE_PREFIX_DELEGATION = "true"
       WARM_PREFIX_TARGET       = "1"
     }
+    # Enable Network Policy support (requires VPC CNI v1.14.0+)
+    enableNetworkPolicy = "true"
   })
 
   tags = {

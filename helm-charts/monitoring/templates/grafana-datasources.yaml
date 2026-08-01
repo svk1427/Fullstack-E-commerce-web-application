@@ -1,0 +1,43 @@
+# =============================================================================
+# GRAFANA - DATA SOURCES
+# =============================================================================
+{{- if .Values.grafana.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.grafana.label }}-datasources
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Values.grafana.label }}
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    deleteDatasources:
+      - name: Prometheus
+        orgId: 1
+      - name: Loki
+        orgId: 1
+    datasources:
+      {{- if .Values.grafana.datasources.prometheus.enabled }}
+      - name: Prometheus
+        type: prometheus
+        uid: prometheus
+        access: proxy
+        url: {{ .Values.grafana.datasources.prometheus.url }}
+        isDefault: true
+        editable: false
+        jsonData:
+          timeInterval: "15s"
+          httpMethod: POST
+      {{- end }}
+      {{- if .Values.grafana.datasources.loki.enabled }}
+      - name: Loki
+        type: loki
+        uid: loki
+        access: proxy
+        url: {{ .Values.grafana.datasources.loki.url }}
+        editable: false
+        jsonData:
+          maxLines: 1000
+      {{- end }}
+{{- end }}

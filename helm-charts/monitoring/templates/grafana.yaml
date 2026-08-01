@@ -1,0 +1,136 @@
+# =============================================================================
+# GRAFANA - DEPLOYMENT
+# =============================================================================
+{{- if .Values.grafana.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.grafana.label }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Values.grafana.label }}
+    component: visualization
+spec:
+  replicas: {{ .Values.grafana.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.grafana.label }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.grafana.label }}
+        component: visualization
+    spec:
+      securityContext:
+        fsGroup: 472
+        runAsGroup: 472
+        runAsNonRoot: true
+        runAsUser: 472
+      containers:
+        - name: {{ .Values.grafana.label }}
+          image: "{{ .Values.grafana.image.repository }}:{{ .Values.grafana.image.tag }}"
+          imagePullPolicy: {{ .Values.grafana.image.pullPolicy }}
+          ports:
+            - containerPort: 3000
+              name: http
+              protocol: TCP
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: {{ .Values.grafana.admin.user | quote }}
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.grafana.label }}-secrets
+                  key: admin-password
+            - name: GF_INSTALL_PLUGINS
+              value: "grafana-clock-panel,grafana-piechart-panel"
+            - name: GF_PATHS_PROVISIONING
+              value: /etc/grafana/provisioning
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "false"
+            - name: GF_SERVER_ROOT_URL
+              value: "%(protocol)s://%(domain)s/"
+          resources:
+            {{- toYaml .Values.grafana.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          volumeMounts:
+            - name: grafana-storage
+              mountPath: /var/lib/grafana
+            - name: grafana-datasources
+              mountPath: /etc/grafana/provisioning/datasources
+            - name: grafana-dashboards-config
+              mountPath: /etc/grafana/provisioning/dashboards
+            - name: grafana-dashboards
+              mountPath: /var/lib/grafana/dashboards
+      volumes:
+        - name: grafana-datasources
+          configMap:
+            name: {{ .Values.grafana.label }}-datasources
+        - name: grafana-dashboards-config
+          configMap:
+            name: {{ .Values.grafana.label }}-dashboards-config
+        - name: grafana-dashboards
+          configMap:
+            name: {{ .Values.grafana.label }}-dashboards
+        {{- if .Values.grafana.storage.enabled }}
+        - name: grafana-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.grafana.label }}-pvc
+        {{- else }}
+        - name: grafana-storage
+          emptyDir: {}
+        {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.grafana.label }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Values.grafana.label }}
+spec:
+  type: {{ .Values.grafana.service.type }}
+  ports:
+    - port: {{ .Values.grafana.service.port }}
+      targetPort: 3000
+      protocol: TCP
+      name: http
+  selector:
+    app: {{ .Values.grafana.label }}
+{{- if .Values.grafana.storage.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.grafana.label }}-pvc
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Values.grafana.label }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.grafana.storage.storageClass }}
+  storageClassName: {{ .Values.grafana.storage.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.grafana.storage.size }}
+{{- end }}
+{{- end }}

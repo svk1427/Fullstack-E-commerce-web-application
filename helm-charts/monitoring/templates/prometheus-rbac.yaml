@@ -1,0 +1,64 @@
+# =============================================================================
+# PROMETHEUS - RBAC
+# =============================================================================
+{{- if .Values.prometheus.enabled }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.prometheus.label }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Values.prometheus.label }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Values.prometheus.label }}
+  labels:
+    app: {{ .Values.prometheus.label }}
+rules:
+  - apiGroups: [""]
+    resources:
+      - nodes
+      - nodes/proxy
+      - nodes/metrics
+      - services
+      - endpoints
+      - pods
+      - configmaps
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["extensions", "networking.k8s.io"]
+    resources:
+      - ingresses
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+      - replicasets
+      - statefulsets
+      - daemonsets
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources:
+      - jobs
+      - cronjobs
+    verbs: ["get", "list", "watch"]
+  - nonResourceURLs: ["/metrics", "/metrics/cadvisor"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Values.prometheus.label }}
+  labels:
+    app: {{ .Values.prometheus.label }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Values.prometheus.label }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.prometheus.label }}
+    namespace: {{ .Values.global.namespace }}
+{{- end }}
