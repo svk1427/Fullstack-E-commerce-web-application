@@ -1,0 +1,92 @@
+# =============================================================================
+# COMMON RESOURCES - CI/CD PIPELINE
+# =============================================================================
+# Deploys shared resources: Service Accounts, RBAC, Network Policies
+# MUST run BEFORE any other service pipelines
+# =============================================================================
+name: "🔧 Common Resources CI/CD"
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'prod'
+        type: choice
+        options:
+          - dev
+          - qa
+          - preprod
+          - prod
+  push:
+    branches: [main]
+    paths:
+      - 'helm-charts/common/**'
+env:
+  SERVICE_NAME: common
+  HELM_CHART_PATH: helm-charts/common
+  HELM_VERSION: '3.14.0'
+  AWS_REGION: us-east-1
+jobs:
+  deploy:
+    name: "🚀 Deploy Common Resources"
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: "📋 Set Environment Variables"
+        id: env-setup
+        run: |
+          INPUT_ENV="${{ github.event.inputs.environment }}"
+          TARGET_ENV="${INPUT_ENV:-prod}"
+          if [ "$TARGET_ENV" == "prod" ]; then
+            K8S_NAMESPACE="ecommerce"
+          else
+            K8S_NAMESPACE="$TARGET_ENV"
+          fi
+          echo "target_env=$TARGET_ENV" >> $GITHUB_OUTPUT
+          echo "k8s_namespace=$K8S_NAMESPACE" >> $GITHUB_OUTPUT
+          echo "🎯 Target: $TARGET_ENV → Namespace: $K8S_NAMESPACE"
+      - name: "📥 Checkout Code"
+        uses: actions/checkout@v4
+      - name: "🔐 Configure AWS"
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: "☸️ Update Kubeconfig"
+        run: aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
+      - name: "⚓ Setup Helm"
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+      - name: "🔍 Validate Helm Chart"
+        run: helm lint ${{ env.HELM_CHART_PATH }}
+      - name: "🚀 Deploy Common Resources"
+        env:
+          K8S_NAMESPACE: ${{ steps.env-setup.outputs.k8s_namespace }}
+        run: |
+          echo "🚀 Deploying to namespace: ${K8S_NAMESPACE}"
+
+          # Deploy with increased timeout and retry logic
+          helm upgrade --install ${{ env.SERVICE_NAME }} ${{ env.HELM_CHART_PATH }} \
+            --namespace ${K8S_NAMESPACE} \
+            --create-namespace \
+            --wait \
+            --timeout 10m \
+            --atomic \
+            --debug
+      - name: "✅ Verify Service Accounts"
+        env:
+          K8S_NAMESPACE: ${{ steps.env-setup.outputs.k8s_namespace }}
+        run: |
+          echo "📋 Service Accounts:"
+          kubectl get serviceaccounts -n ${K8S_NAMESPACE}
+
+          echo ""
+          echo "📜 Roles:"
+          kubectl get roles -n ${K8S_NAMESPACE}
+
+          echo ""
+          echo "🔗 RoleBindings:"
+          kubectl get rolebindings -n ${K8S_NAMESPACE}
