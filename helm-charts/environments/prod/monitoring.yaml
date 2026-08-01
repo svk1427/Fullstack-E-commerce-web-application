@@ -6,6 +6,7 @@
 global:
   namespace: monitoring
   environment: prod
+  createNamespace: false
 # Fluent Bit - Log Collector
 fluentbit:
   enabled: true
@@ -17,6 +18,7 @@ fluentbit:
       cpu: 500m
       memory: 512Mi
 # Loki - Log Aggregation
+
 loki:
   enabled: true
   replicas: 1
@@ -32,6 +34,7 @@ loki:
     size: 50Gi
     storageClass: gp2
 # Prometheus - Metrics
+
 prometheus:
   enabled: true
   replicas: 1
@@ -48,6 +51,7 @@ prometheus:
     storageClass: gp2
     retentionDays: 30
 # Kube State Metrics
+
 kubeStateMetrics:
   enabled: true
   replicas: 1
@@ -59,6 +63,7 @@ kubeStateMetrics:
       cpu: 500m
       memory: 512Mi
 # Node Exporter
+
 nodeExporter:
   enabled: true
   resources:
@@ -69,6 +74,7 @@ nodeExporter:
       cpu: 500m
       memory: 256Mi
 # Grafana - Visualization
+
 grafana:
   enabled: true
   replicas: 1
@@ -89,6 +95,7 @@ grafana:
 
     password: ""
 # Alertmanager - Enabled for production
+
 alertmanager:
   enabled: true
   replicas: 1
@@ -105,6 +112,7 @@ alertmanager:
       webhookUrl: ""
       channel: "#alerts"
 # Ingress - Enable for production
+
 ingress:
   enabled: true
   className: alb

@@ -1,6 +1,7 @@
 # =============================================================================
 # MONITORING NAMESPACE
 # =============================================================================
+{{- if .Values.global.createNamespace }}
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -9,3 +10,4 @@ metadata:
     name: {{ .Values.global.namespace }}
     environment: {{ .Values.global.environment }}
     managed-by: helm
+{{- end }}
