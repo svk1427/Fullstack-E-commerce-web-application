@@ -63,6 +63,19 @@ jobs:
           version: ${{ env.HELM_VERSION }}
       - name: "🔍 Validate Helm Chart"
         run: helm lint ${{ env.HELM_CHART_PATH }}
+      - name: "� Get Current ALB DNS (if exists)"
+        id: current-alb
+        env:
+          K8S_NAMESPACE: ${{ steps.env-setup.outputs.k8s_namespace }}
+        run: |
+          CURRENT_DNS=$(kubectl get ingress -n ${K8S_NAMESPACE} -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
+          if [ -n "$CURRENT_DNS" ]; then
+            echo "📍 Current ALB DNS: $CURRENT_DNS"
+            echo "current_dns=$CURRENT_DNS" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ No existing ALB found - new ALB will be created"
+            echo "current_dns=" >> $GITHUB_OUTPUT
+          fi
       - name: "🚀 Deploy Ingress to ${{ steps.env-setup.outputs.k8s_namespace }}"
         env:
           TARGET_ENV: ${{ steps.env-setup.outputs.target_env }}
@@ -71,6 +84,7 @@ jobs:
           ENV_FILE="helm-charts/environments/${TARGET_ENV}/${{ env.SERVICE_NAME }}.yaml"
           HELM_CMD="helm upgrade --install ${{ env.SERVICE_NAME }} ${{ env.HELM_CHART_PATH }}"
           HELM_CMD="$HELM_CMD --namespace ${K8S_NAMESPACE} --create-namespace"
+          HELM_CMD="$HELM_CMD --history-max 5"
           if [ -f "$ENV_FILE" ]; then
             echo "📁 Using environment override: $ENV_FILE"
             HELM_CMD="$HELM_CMD -f $ENV_FILE"
@@ -81,8 +95,19 @@ jobs:
       - name: "✅ Verify Ingress"
         env:
           K8S_NAMESPACE: ${{ steps.env-setup.outputs.k8s_namespace }}
+          PREVIOUS_DNS: ${{ steps.current-alb.outputs.current_dns }}
         run: |
           kubectl get ingress -n ${K8S_NAMESPACE}
           echo "Waiting for ALB to be provisioned..."
           sleep 30
+          NEW_DNS=$(kubectl get ingress -n ${K8S_NAMESPACE} -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
+          echo "🌐 ALB DNS: $NEW_DNS"
+          if [ -n "$PREVIOUS_DNS" ] && [ "$PREVIOUS_DNS" != "$NEW_DNS" ]; then
+            echo "⚠️ WARNING: ALB DNS changed!"
+            echo "   Old: $PREVIOUS_DNS"
+            echo "   New: $NEW_DNS"
+            echo "   Update your DNS records if using a custom domain."
+          elif [ -n "$PREVIOUS_DNS" ]; then
+            echo "✅ ALB DNS unchanged: $NEW_DNS"
+          fi
           kubectl describe ingress -n ${K8S_NAMESPACE}
