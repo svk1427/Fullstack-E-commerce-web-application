@@ -31,7 +31,7 @@ jobs:
   deploy:
     name: "🚀 Deploy Common Resources"
     runs-on: ubuntu-latest
-    environment: dev
+    environment: ${{ (github.event.inputs.environment == 'prod' || github.event.inputs.environment == '' || github.event.inputs.environment == 'preprod') && 'production' || github.event.inputs.environment }}
     steps:
       - name: "📋 Set Environment Variables"
         id: env-setup
