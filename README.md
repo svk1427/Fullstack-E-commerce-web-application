@@ -41,6 +41,7 @@
       - [Kubernetes Cluster (AWS EKS)](#kubernetes-cluster-aws-eks)
       - [Horizontal Pod Autoscaler (HPA)](#horizontal-pod-autoscaler-hpa---deep-dive)
       - [Cluster Autoscaler](#cluster-autoscaler---deep-dive)
+      - [Load Testing HPA & Cluster Autoscaler](#load-testing-hpa--cluster-autoscaler)
       - [Service Accounts & RBAC](#service-accounts--rbac)
       - [CoreDNS (Cluster DNS)](#coredns-cluster-dns)
     - [Terraform - Infrastructure as Code](#terraform-infrastructure-as-code)
@@ -434,6 +435,134 @@ kubectl get nodes -w
 
 # Check node resources
 kubectl top nodes
+```
+
+#### Load Testing HPA & Cluster Autoscaler
+
+This section describes how to test and validate that HPA and Cluster Autoscaler are working correctly.
+
+**Prerequisites:**
+- Metrics Server is running (`kubectl get pods -n kube-system | grep metrics-server`)
+- HPA is enabled for the service (`kubectl get hpa -n ecommerce`)
+- Cluster Autoscaler is running (`kubectl get pods -n kube-system | grep cluster-autoscaler`)
+
+**Step 1: Set Up Monitoring (Terminal 1)**
+
+Open a terminal to watch HPA scaling in real-time:
+```bash
+# Watch HPA scaling
+kubectl get hpa -n ecommerce -w
+```
+
+**Step 2: Set Up Node Monitoring (Terminal 2)**
+
+Open another terminal to watch node scaling:
+```bash
+# Watch nodes
+kubectl get nodes -w
+```
+
+**Step 3: Set Up Pod Monitoring (Terminal 3)**
+
+Open another terminal to watch pods:
+```bash
+# Watch pods (auth service example)
+kubectl get pods -n ecommerce -l app=auth -w
+```
+
+**Step 4: Generate CPU Load (Terminal 4)**
+
+Run a load generator pod to stress the auth-service:
+```bash
+# Create a load generator pod
+kubectl run -i --tty load-generator --rm --image=busybox:1.36 --restart=Never -n ecommerce -- /bin/sh -c "
+while true; do
+  wget -q -O- http://auth-svc:9030/actuator/health > /dev/null 2>&1
+done
+"
+```
+
+**Alternative: High-Intensity Load Testing**
+
+For more intense load testing using multiple parallel requests:
+```bash
+# Run 10 parallel load generators
+for i in $(seq 1 10); do
+  kubectl run load-gen-$i --image=busybox:1.36 --restart=Never -n ecommerce -- /bin/sh -c "
+    while true; do
+      wget -q -O- http://auth-svc:9030/actuator/health > /dev/null 2>&1
+    done
+  " &
+done
+```
+
+**Step 5: Observe Scaling Behavior**
+
+Expected behavior when load increases:
+
+| Time | What Happens | Where to See |
+|------|--------------|--------------|
+| 0-60s | CPU increases from ~30% to >70% | `kubectl top pods -n ecommerce` |
+| 60-120s | HPA detects high CPU, creates new pods | Terminal 1 (HPA watch) |
+| 120-180s | Pods in Pending state (if node full) | Terminal 3 (Pod watch) |
+| 180-300s | Cluster Autoscaler adds new node | Terminal 2 (Node watch) |
+| 300s+ | Pending pods scheduled on new node | Terminal 3 (Pod watch) |
+
+**Step 6: Monitor Resource Usage**
+
+Check real-time CPU/Memory usage:
+```bash
+# Pod resource usage
+kubectl top pods -n ecommerce
+
+# Node resource usage
+kubectl top nodes
+
+# Detailed HPA status
+kubectl describe hpa auth-hpa -n ecommerce
+```
+
+**Step 7: Clean Up Load Generators**
+
+After testing, clean up the load generator pods:
+```bash
+# Delete single load generator
+kubectl delete pod load-generator -n ecommerce --ignore-not-found
+
+# Delete multiple load generators
+kubectl delete pods -n ecommerce -l run=load-gen --ignore-not-found
+for i in $(seq 1 10); do
+  kubectl delete pod load-gen-$i -n ecommerce --ignore-not-found
+done
+```
+
+**Step 8: Observe Scale Down**
+
+After removing load:
+1. Wait 5 minutes (HPA stabilization window)
+2. HPA will scale pods down (5 → 1)
+3. Wait another 5 minutes (CA stabilization window)
+4. Cluster Autoscaler will remove underutilized nodes (4 → 1)
+
+**Troubleshooting:**
+
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| HPA shows `<unknown>` CPU | Metrics Server not running | `kubectl get pods -n kube-system \| grep metrics` |
+| HPA not scaling | CPU below threshold | Increase load or lower `targetCPUUtilization` |
+| Pods stuck in Pending | Node full, CA not scaling | Check CA logs: `kubectl logs -n kube-system -l app.kubernetes.io/name=cluster-autoscaler` |
+| Nodes not scaling | Node group at max_size | Increase `max_size` in Terraform node group |
+
+**HPA Scaling Formula:**
+
+```
+desiredReplicas = ceil[currentReplicas × (currentMetricValue / desiredMetricValue)]
+
+Example:
+- Current replicas: 1
+- Current CPU: 140%
+- Target CPU: 70%
+- Desired replicas = ceil(1 × 140/70) = ceil(2.0) = 2 pods
 ```
 
 #### Service Accounts & RBAC
@@ -1066,3 +1195,8 @@ it generates a some xml content for confirmaion
 that port is mandatory , we need to get heat from the srvc ports
 
 
+test pod to pod communication b/w diff nodes
+
+kubectl exec -it deploy/auth -n ecommerce -- /bin/sh -c "curl -s http://registry-svc:80/actuator/health"
+
+will get the xml kind of file if we can access
