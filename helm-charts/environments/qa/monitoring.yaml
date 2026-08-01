@@ -1,0 +1,91 @@
+# =============================================================================
+# MONITORING STACK - QA VALUES
+# =============================================================================
+# Moderate resources for QA environment
+# =============================================================================
+global:
+  namespace: monitoring
+  environment: qa
+# Fluent Bit - Log Collector
+fluentbit:
+  enabled: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 150m
+      memory: 192Mi
+# Loki - Log Aggregation
+loki:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 400m
+      memory: 384Mi
+  storage:
+    enabled: true
+    size: 10Gi
+    storageClass: gp2
+# Prometheus - Metrics
+prometheus:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 150m
+      memory: 384Mi
+    limits:
+      cpu: 750m
+      memory: 1536Mi
+  storage:
+    enabled: true
+    size: 15Gi
+    storageClass: gp2
+    retentionDays: 14
+# Kube State Metrics
+kubeStateMetrics:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 150m
+      memory: 192Mi
+# Node Exporter
+nodeExporter:
+  enabled: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 32Mi
+    limits:
+      cpu: 150m
+      memory: 96Mi
+# Grafana - Visualization
+grafana:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 75m
+      memory: 192Mi
+    limits:
+      cpu: 350m
+      memory: 384Mi
+  storage:
+    enabled: true
+    size: 3Gi
+    storageClass: gp2
+# Alertmanager - Disabled for QA
+alertmanager:
+  enabled: false
+# Ingress - Disabled for QA (use port-forward)
+ingress:
+  enabled: false

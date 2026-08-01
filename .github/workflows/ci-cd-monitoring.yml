@@ -1,0 +1,210 @@
+# =============================================================================
+# MONITORING STACK - CI/CD PIPELINE
+# =============================================================================
+# Deploys: Fluent Bit, Prometheus, Grafana, Loki, Node Exporter
+# Creates 'monitoring' namespace with full observability stack
+# =============================================================================
+name: "📊 Monitoring Stack CI/CD"
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'prod'
+        type: choice
+        options:
+          - dev
+          - qa
+          - preprod
+          - prod
+      grafana_password:
+        description: 'Grafana admin password (leave empty for default)'
+        required: false
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - 'helm-charts/monitoring/**'
+      - 'helm-charts/environments/**/monitoring.yaml'
+env:
+  SERVICE_NAME: monitoring
+  HELM_CHART_PATH: helm-charts/monitoring
+  HELM_VERSION: '3.14.0'
+  AWS_REGION: us-east-1
+  K8S_NAMESPACE: monitoring
+jobs:
+  deploy:
+    name: "🚀 Deploy Monitoring Stack"
+    runs-on: ubuntu-latest
+    environment: ${{ (github.event.inputs.environment == 'prod' || github.event.inputs.environment == '' || github.event.inputs.environment == 'preprod') && 'production' || github.event.inputs.environment }}
+    steps:
+      - name: "📋 Set Environment Variables"
+        id: env-setup
+        run: |
+          INPUT_ENV="${{ github.event.inputs.environment }}"
+          TARGET_ENV="${INPUT_ENV:-prod}"
+
+          # Set values file based on environment
+          VALUES_FILE="helm-charts/environments/${TARGET_ENV}/monitoring.yaml"
+
+          echo "target_env=$TARGET_ENV" >> $GITHUB_OUTPUT
+          echo "values_file=$VALUES_FILE" >> $GITHUB_OUTPUT
+          echo "🎯 Target Environment: $TARGET_ENV"
+          echo "📄 Values File: $VALUES_FILE"
+      - name: "📥 Checkout Code"
+        uses: actions/checkout@v4
+      - name: "🔐 Configure AWS Credentials"
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: "☸️ Update Kubeconfig"
+        run: |
+          aws eks update-kubeconfig \
+            --name ${{ secrets.EKS_CLUSTER }} \
+            --region ${{ env.AWS_REGION }}
+      - name: "⚓ Setup Helm"
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+      - name: "🔍 Validate Helm Chart"
+        run: |
+          echo "🔍 Linting Helm chart..."
+          helm lint ${{ env.HELM_CHART_PATH }}
+
+          echo "📋 Template preview..."
+          helm template ${{ env.SERVICE_NAME }} ${{ env.HELM_CHART_PATH }} \
+            --namespace ${{ env.K8S_NAMESPACE }} \
+            --debug > /dev/null
+      - name: "📁 Check Values File"
+        id: check-values
+        run: |
+          VALUES_FILE="${{ steps.env-setup.outputs.values_file }}"
+          if [ -f "$VALUES_FILE" ]; then
+            echo "✅ Values file found: $VALUES_FILE"
+            echo "values_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Values file not found, using defaults"
+            echo "values_exists=false" >> $GITHUB_OUTPUT
+          fi
+      - name: "🚀 Deploy Monitoring Stack"
+        env:
+          VALUES_FILE: ${{ steps.env-setup.outputs.values_file }}
+          VALUES_EXISTS: ${{ steps.check-values.outputs.values_exists }}
+          GRAFANA_PASSWORD: ${{ github.event.inputs.grafana_password || secrets.GRAFANA_ADMIN_PASSWORD }}
+        run: |
+          echo "🚀 Deploying Monitoring Stack to namespace: ${{ env.K8S_NAMESPACE }}"
+
+          # Build helm command
+          HELM_CMD="helm upgrade --install ${{ env.SERVICE_NAME }} ${{ env.HELM_CHART_PATH }}"
+          HELM_CMD+=" --namespace ${{ env.K8S_NAMESPACE }}"
+          HELM_CMD+=" --create-namespace"
+          HELM_CMD+=" --wait"
+          HELM_CMD+=" --timeout 15m"
+          HELM_CMD+=" --atomic"
+
+          # Add values file if exists
+          if [ "$VALUES_EXISTS" == "true" ]; then
+            HELM_CMD+=" -f $VALUES_FILE"
+          fi
+
+          # Add Grafana password if provided
+          if [ -n "$GRAFANA_PASSWORD" ]; then
+            HELM_CMD+=" --set grafana.admin.password=$GRAFANA_PASSWORD"
+          fi
+
+          # Execute
+          echo "📦 Running: helm upgrade --install monitoring ..."
+          eval $HELM_CMD
+      - name: "⏳ Wait for Deployments"
+        run: |
+          echo "⏳ Waiting for all monitoring components to be ready..."
+
+          # Wait for DaemonSets
+          echo "📊 Checking Fluent Bit DaemonSet..."
+          kubectl rollout status daemonset/fluent-bit -n ${{ env.K8S_NAMESPACE }} --timeout=120s || true
+
+          echo "📊 Checking Node Exporter DaemonSet..."
+          kubectl rollout status daemonset/node-exporter -n ${{ env.K8S_NAMESPACE }} --timeout=120s || true
+
+          # Wait for StatefulSets
+          echo "📊 Checking Prometheus StatefulSet..."
+          kubectl rollout status statefulset/prometheus -n ${{ env.K8S_NAMESPACE }} --timeout=180s || true
+
+          echo "📊 Checking Loki StatefulSet..."
+          kubectl rollout status statefulset/loki -n ${{ env.K8S_NAMESPACE }} --timeout=180s || true
+
+          # Wait for Deployments
+          echo "📊 Checking Grafana Deployment..."
+          kubectl rollout status deployment/grafana -n ${{ env.K8S_NAMESPACE }} --timeout=120s || true
+
+          echo "📊 Checking Kube State Metrics..."
+          kubectl rollout status deployment/kube-state-metrics -n ${{ env.K8S_NAMESPACE }} --timeout=120s || true
+      - name: "✅ Verify Deployment"
+        run: |
+          echo "============================================"
+          echo "📊 MONITORING STACK STATUS"
+          echo "============================================"
+
+          echo ""
+          echo "🔹 Pods:"
+          kubectl get pods -n ${{ env.K8S_NAMESPACE }} -o wide
+
+          echo ""
+          echo "🔹 DaemonSets:"
+          kubectl get daemonsets -n ${{ env.K8S_NAMESPACE }}
+
+          echo ""
+          echo "🔹 StatefulSets:"
+          kubectl get statefulsets -n ${{ env.K8S_NAMESPACE }}
+
+          echo ""
+          echo "🔹 Services:"
+          kubectl get services -n ${{ env.K8S_NAMESPACE }}
+
+          echo ""
+          echo "🔹 PVCs:"
+          kubectl get pvc -n ${{ env.K8S_NAMESPACE }}
+      - name: "📝 Deployment Summary"
+        if: success()
+        run: |
+          echo "============================================"
+          echo "✅ MONITORING STACK DEPLOYED SUCCESSFULLY"
+          echo "============================================"
+          echo ""
+          echo "🎯 Environment: ${{ steps.env-setup.outputs.target_env }}"
+          echo "📍 Namespace: ${{ env.K8S_NAMESPACE }}"
+          echo ""
+          echo "📊 Components Deployed:"
+          echo "  • Fluent Bit (DaemonSet) - Log collection"
+          echo "  • Node Exporter (DaemonSet) - Node metrics"
+          echo "  • Prometheus (StatefulSet) - Metrics storage"
+          echo "  • Loki (StatefulSet) - Log aggregation"
+          echo "  • Grafana (Deployment) - Visualization"
+          echo "  • Kube State Metrics - K8s object metrics"
+          echo ""
+          echo "🔗 Access (via port-forward):"
+          echo "  Grafana:    kubectl port-forward svc/grafana 3000:3000 -n monitoring"
+          echo "  Prometheus: kubectl port-forward svc/prometheus 9090:9090 -n monitoring"
+          echo ""
+          echo "🔐 Grafana Login: admin / (password set in secrets)"
+          echo "============================================"
+      - name: "❌ Deployment Failed"
+        if: failure()
+        run: |
+          echo "============================================"
+          echo "❌ MONITORING DEPLOYMENT FAILED"
+          echo "============================================"
+          echo ""
+          echo "🔍 Debugging Information:"
+          echo ""
+          echo "🔹 Pod Status:"
+          kubectl get pods -n ${{ env.K8S_NAMESPACE }} -o wide || true
+          echo ""
+          echo "🔹 Pod Events:"
+          kubectl get events -n ${{ env.K8S_NAMESPACE }} --sort-by='.lastTimestamp' | tail -20 || true
+          echo ""
+          echo "🔹 Describe Failing Pods:"
+          kubectl describe pods -n ${{ env.K8S_NAMESPACE }} --selector='app in (fluent-bit,prometheus,grafana,loki)' | tail -50 || true

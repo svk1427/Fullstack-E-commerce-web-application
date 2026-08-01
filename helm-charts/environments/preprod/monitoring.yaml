@@ -1,0 +1,112 @@
+# =============================================================================
+# MONITORING STACK - PREPROD VALUES
+# =============================================================================
+# Near-production resources for pre-production environment
+# =============================================================================
+global:
+  namespace: monitoring
+  environment: preprod
+# Fluent Bit - Log Collector
+fluentbit:
+  enabled: true
+  resources:
+    requests:
+      cpu: 75m
+      memory: 96Mi
+    limits:
+      cpu: 300m
+      memory: 384Mi
+# Loki - Log Aggregation
+loki:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 150m
+      memory: 384Mi
+    limits:
+      cpu: 750m
+      memory: 768Mi
+  storage:
+    enabled: true
+    size: 30Gi
+    storageClass: gp2
+# Prometheus - Metrics
+prometheus:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 350m
+      memory: 768Mi
+    limits:
+      cpu: 1500m
+      memory: 3Gi
+  storage:
+    enabled: true
+    size: 50Gi
+    storageClass: gp2
+    retentionDays: 21
+# Kube State Metrics
+kubeStateMetrics:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 75m
+      memory: 96Mi
+    limits:
+      cpu: 350m
+      memory: 384Mi
+# Node Exporter
+nodeExporter:
+  enabled: true
+  resources:
+    requests:
+      cpu: 75m
+      memory: 48Mi
+    limits:
+      cpu: 350m
+      memory: 192Mi
+# Grafana - Visualization
+grafana:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 150m
+      memory: 384Mi
+    limits:
+      cpu: 750m
+      memory: 768Mi
+  storage:
+    enabled: true
+    size: 8Gi
+    storageClass: gp2
+# Alertmanager - Enabled for preprod
+alertmanager:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 150m
+      memory: 192Mi
+  notifications:
+    slack:
+      enabled: false
+      webhookUrl: ""
+      channel: "#preprod-alerts"
+# Ingress - Enabled for preprod (internal only)
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: /api/health
+  hosts:
+    grafana: grafana-preprod.purely.internal
+    prometheus: prometheus-preprod.purely.internal
