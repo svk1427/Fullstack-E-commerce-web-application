@@ -6,6 +6,9 @@ ingress:
   # ALB CONFIGURATION - PRODUCTION
   # =============================================================================
   alb:
+    # Ingress Group - All ingresses with same group share ONE ALB
+    groupName: "purely-ingress-group"
+    groupOrder: "100"
     scheme: internet-facing
     targetType: ip
     ingressClassName: alb

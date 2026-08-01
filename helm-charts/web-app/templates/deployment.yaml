@@ -10,6 +10,11 @@ spec:
   selector:
     matchLabels:
       app: {{ .Values.web.label }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1          # Create 1 new pod before killing old
+      maxUnavailable: 0    # Never kill old pod until new is ready
   template:
     metadata:
       labels:
@@ -21,6 +26,23 @@ spec:
           imagePullPolicy: {{ .Values.web.image.pullPolicy | default "IfNotPresent" }}
           ports:
             - containerPort: {{ .Values.web.containerPort }}
+          readinessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.web.containerPort }}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.web.containerPort }}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
           resources:
             requests:
               cpu: {{ .Values.web.resources.requests.cpu }}

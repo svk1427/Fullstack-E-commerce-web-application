@@ -9,9 +9,9 @@ function Hero() {
 
     return(
         <section className="hero-section" id='hero'>
-            <h1>Welcome to leading health and wellness retailer.</h1>
+            <h1>Welcome to Kubernetes ecommerce application.</h1>
 
-            <h3>We believe in pure, natural goodness - plain and simple. We aim to partner with you on your unique wellness journey while honoring people and the planet in all that we do.</h3>
+            <h3>We believe it's based on AWS EKS with behind the alb , ingress and helm. We aim to learn and understand the kubernetes briefly.</h3>
             <div>
                 <Link to='/products/All'><button>Shop now</button></Link>
                 

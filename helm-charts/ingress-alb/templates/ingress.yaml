@@ -8,6 +8,10 @@ metadata:
     # AWS ALB - PRODUCTION CONFIGURATION
     # ==========================================================================
     
+    # Ingress Group - CRITICAL: All ingresses with same group share ONE ALB
+    alb.ingress.kubernetes.io/group.name: {{ .Values.ingress.alb.groupName | default "purely-ingress-group" }}
+    alb.ingress.kubernetes.io/group.order: '{{ .Values.ingress.alb.groupOrder | default "100" }}'
+    
     # Core Settings
     alb.ingress.kubernetes.io/scheme: {{ .Values.ingress.alb.scheme }}
     alb.ingress.kubernetes.io/target-type: {{ .Values.ingress.alb.targetType }}

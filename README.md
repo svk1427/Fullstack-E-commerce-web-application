@@ -747,3 +747,51 @@ alaney backoff error tho paatu liveness probes fail ayyayi ani chupistadi events
 
 dhiniki app code changes/sg rules check cheskoni resolve cheyyali
 e error lo 0/1 chupisthundi READY daggara
+
+-----
+
+ALB auto-generates rules - When you use pathType: Prefix, the ALB Load Balancer Controller automatically creates multiple listener rules to handle the prefix matching properly
+
+when we see below in secrets
+
+sh.helm.release.v1.api-gateway.v1    helm.sh/release.v1
+sh.helm.release.v1.api-gateway.v2    helm.sh/release.v1
+sh.helm.release.v1.cart-service.v1   helm.sh/release.v1
+
+# First deployment
+helm install api-gateway helm-charts/api-gateway
+# Creates: sh.helm.release.v1.api-gateway.v1
+
+# Second deployment (upgrade)
+helm upgrade api-gateway helm-charts/api-gateway
+# Creates: sh.helm.release.v1.api-gateway.v2
+
+# Third deployment
+helm upgrade api-gateway helm-charts/api-gateway
+# Creates: sh.helm.release.v1.api-gateway.v3
+
+when we do helm rollback it back to the previous versions
+of services, deployments, rs, pods
+
+
+# Check current history
+helm history api-gateway -n ecommerce
+
+# Output:
+# REVISION  STATUS      DESCRIPTION
+# 1         superseded  Install complete
+# 2         superseded  Upgrade complete
+# 3         deployed    Upgrade complete    ← Current
+
+# Rollback to revision 1
+helm rollback api-gateway 1 -n ecommerce
+
+# Check history again
+helm history api-gateway -n ecommerce
+
+# Output:
+# REVISION  STATUS      DESCRIPTION
+# 1         superseded  Install complete
+# 2         superseded  Upgrade complete
+# 3         superseded  Upgrade complete
+# 4         deployed    Rollback to 1       ← New current (same as v1)
