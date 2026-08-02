@@ -137,37 +137,63 @@ jobs:
             -backend-config="dynamodb_table=${{ secrets.TF_LOCK_TABLE }}" \
             -upgrade=false
       - name: "🔑 Configure kubectl for EKS"
-        run: |
-          # Get cluster name from terraform outputs or variables
-          CLUSTER_NAME=$(grep -r 'cluster_name' *.tf | grep 'default' | head -1 | sed 's/.*"\([^"]*\)".*/\1/' || echo "eksdemo")
-          FULL_CLUSTER_NAME="SAP-dev-${CLUSTER_NAME}"
-
-          # Check if cluster exists before configuring kubectl
-          if aws eks describe-cluster --name "$FULL_CLUSTER_NAME" --region ${{ env.AWS_REGION }} 2>/dev/null; then
-            echo "✅ EKS cluster found, configuring kubectl..."
-            aws eks update-kubeconfig --name "$FULL_CLUSTER_NAME" --region ${{ env.AWS_REGION }}
-          else
-            echo "⚠️ EKS cluster not found (might be first deployment), skipping kubectl config"
-          fi
+        continue-on-error: true
+        run: "# Get cluster name from terraform state or variables\nCLUSTER_NAME=\"SAP-dev-eksdemo\"\n\necho \"🔍 Checking if EKS cluster exists: $CLUSTER_NAME\"\n\n# Check if cluster exists and is ACTIVE\nCLUSTER_STATUS=$(aws eks describe-cluster --name \"$CLUSTER_NAME\" --region ${{ env.AWS_REGION }} --query 'cluster.status' --output text 2>/dev/null || echo \"NOT_FOUND\")\n\nif [ \"$CLUSTER_STATUS\" = \"ACTIVE\" ]; then\n  echo \"✅ EKS cluster is ACTIVE, configuring kubectl...\"\n  aws eks update-kubeconfig --name \"$CLUSTER_NAME\" --region ${{ env.AWS_REGION }}\n  \n  # Verify connectivity\n  kubectl cluster-info --request-timeout=10s || echo \"⚠️ kubectl connectivity check failed, continuing...\"\nelse\n  echo \"⚠️ EKS cluster status: $CLUSTER_STATUS - skipping kubectl config\"\n  echo \"   This is expected for first deployment or during cluster transitions\"\nfi\n"
       - name: "✅ Terraform Validate"
         run: terraform validate
       - name: "📋 Terraform Plan"
         if: needs.setup.outputs.action == 'plan'
         run: |
           echo "🔍 Running Terraform Plan..."
-          terraform plan -no-color -out=tfplan
+          # Run plan and capture exit code
+          set +e
+          terraform plan -no-color -out=tfplan -detailed-exitcode 2>&1 | tee plan_output.txt
+          PLAN_EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+
+          # Exit codes: 0 = no changes, 1 = error, 2 = changes present
+          if [ $PLAN_EXIT_CODE -eq 0 ]; then
+            echo "✅ No changes required"
+          elif [ $PLAN_EXIT_CODE -eq 2 ]; then
+            echo "📝 Changes detected - plan saved to tfplan"
+            exit 0
+          else
+            echo "❌ Terraform plan failed with exit code: $PLAN_EXIT_CODE"
+            echo "--- Full output ---"
+            cat plan_output.txt
+            exit 1
+          fi
       - name: "📋 Terraform Plan (Destroy)"
         if: needs.setup.outputs.action == 'plan-destroy'
         run: |
           echo "⚠️ DESTROY PLAN - Shows what will be deleted"
-          terraform plan -destroy -no-color
+          set +e
+          terraform plan -destroy -no-color 2>&1 | tee destroy_plan_output.txt
+          PLAN_EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+
+          if [ $PLAN_EXIT_CODE -ne 0 ]; then
+            echo "❌ Terraform destroy plan failed"
+            cat destroy_plan_output.txt
+            exit 1
+          fi
       - name: "🚀 Terraform Apply"
         if: needs.setup.outputs.action == 'apply'
         run: |
           echo "╔═══════════════════════════════════════════════════════════════╗"
           echo "║           🚀 APPLYING TERRAFORM CHANGES                       ║"
           echo "╚═══════════════════════════════════════════════════════════════╝"
-          terraform apply -auto-approve -no-color
+          set +e
+          terraform apply -auto-approve -no-color 2>&1 | tee apply_output.txt
+          APPLY_EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+
+          if [ $APPLY_EXIT_CODE -ne 0 ]; then
+            echo "❌ Terraform apply failed"
+            cat apply_output.txt
+            exit 1
+          fi
+          echo "✅ Terraform apply completed successfully"
       - name: "🔥 Terraform Destroy"
         if: needs.setup.outputs.action == 'destroy'
         run: |
@@ -175,7 +201,17 @@ jobs:
           echo "║           🔥 DESTROYING TERRAFORM RESOURCES                   ║"
           echo "║           ⚠️  THIS IS IRREVERSIBLE!                           ║"
           echo "╚═══════════════════════════════════════════════════════════════╝"
-          terraform destroy -auto-approve -no-color
+          set +e
+          terraform destroy -auto-approve -no-color 2>&1 | tee destroy_output.txt
+          DESTROY_EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+
+          if [ $DESTROY_EXIT_CODE -ne 0 ]; then
+            echo "❌ Terraform destroy failed"
+            cat destroy_output.txt
+            exit 1
+          fi
+          echo "✅ Terraform destroy completed successfully"
       - name: "🔓 Force Unlock"
         if: needs.setup.outputs.action == 'force-unlock'
         run: |
