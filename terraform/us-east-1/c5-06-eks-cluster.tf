@@ -1,11 +1,20 @@
-# Create AWS EKS Cluster
+# =============================================================================
+# EKS CLUSTER CONFIGURATION
+# =============================================================================
+# The EKS control plane ENIs are placed in BOTH public and private subnets
+# This allows the control plane to communicate with nodes in private subnets
+# while still being accessible for kubectl commands (if public access enabled)
+# =============================================================================
+
 resource "aws_eks_cluster" "eks_cluster" {
   name     = "${local.name}-${var.cluster_name}"
   role_arn = aws_iam_role.eks_master_role.arn
   version  = var.cluster_version
 
   vpc_config {
-    subnet_ids              = module.vpc.public_subnets
+    # Use both public and private subnets for EKS control plane ENIs
+    # This ensures control plane can communicate with nodes in private subnets
+    subnet_ids              = concat(module.vpc.public_subnets, module.vpc.private_subnets)
     endpoint_private_access = var.cluster_endpoint_private_access
     endpoint_public_access  = var.cluster_endpoint_public_access
     public_access_cidrs     = var.cluster_endpoint_public_access_cidrs
