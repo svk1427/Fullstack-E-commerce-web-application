@@ -1200,3 +1200,7 @@ test pod to pod communication b/w diff nodes
 kubectl exec -it deploy/auth -n ecommerce -- /bin/sh -c "curl -s http://registry-svc:80/actuator/health"
 
 will get the xml kind of file if we can access
+
+I see these livenessprobes and readiness probes only for few deployments not all, why ? please update to all the deployments
+
+we can work on these based on the prodcution ready deployment yaml files documents
