@@ -133,7 +133,7 @@ resource "helm_release" "cluster_autoscaler" {
   ]
 
   depends_on = [
-    aws_eks_node_group.eks_ng_public,
+    aws_eks_node_group.eks_ng_private,
     aws_iam_role_policy_attachment.cluster_autoscaler_attach
   ]
 }

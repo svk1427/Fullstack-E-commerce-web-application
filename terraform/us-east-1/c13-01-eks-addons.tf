@@ -43,7 +43,7 @@ resource "aws_eks_addon" "coredns" {
     }
   )
 
-  depends_on = [aws_eks_node_group.eks_ng_public]
+  depends_on = [aws_eks_node_group.eks_ng_private]
 }
 
 # -----------------------------------------------------------------------------
@@ -63,7 +63,7 @@ resource "aws_eks_addon" "kube_proxy" {
     }
   )
 
-  depends_on = [aws_eks_node_group.eks_ng_public]
+  depends_on = [aws_eks_node_group.eks_ng_private]
 }
 
 # -----------------------------------------------------------------------------
@@ -83,7 +83,7 @@ resource "aws_eks_addon" "vpc_cni" {
     }
   )
 
-  depends_on = [aws_eks_node_group.eks_ng_public]
+  depends_on = [aws_eks_node_group.eks_ng_private]
 }
 
 # -----------------------------------------------------------------------------
