@@ -136,6 +136,19 @@ jobs:
             -backend-config="region=${{ env.AWS_REGION }}" \
             -backend-config="dynamodb_table=${{ secrets.TF_LOCK_TABLE }}" \
             -upgrade=false
+      - name: "🔑 Configure kubectl for EKS"
+        run: |
+          # Get cluster name from terraform outputs or variables
+          CLUSTER_NAME=$(grep -r 'cluster_name' *.tf | grep 'default' | head -1 | sed 's/.*"\([^"]*\)".*/\1/' || echo "eksdemo")
+          FULL_CLUSTER_NAME="SAP-dev-${CLUSTER_NAME}"
+
+          # Check if cluster exists before configuring kubectl
+          if aws eks describe-cluster --name "$FULL_CLUSTER_NAME" --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            echo "✅ EKS cluster found, configuring kubectl..."
+            aws eks update-kubeconfig --name "$FULL_CLUSTER_NAME" --region ${{ env.AWS_REGION }}
+          else
+            echo "⚠️ EKS cluster not found (might be first deployment), skipping kubectl config"
+          fi
       - name: "✅ Terraform Validate"
         run: terraform validate
       - name: "📋 Terraform Plan"

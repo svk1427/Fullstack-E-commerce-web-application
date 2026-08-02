@@ -1,4 +1,10 @@
-# Datasource: EKS Cluster Auth 
+# =============================================================================
+# HELM PROVIDER CONFIGURATION
+# =============================================================================
+# Uses token-based authentication with EKS cluster auth data source
+# =============================================================================
+
+# Datasource: EKS Cluster Auth
 data "aws_eks_cluster_auth" "cluster" {
   name = aws_eks_cluster.eks_cluster.id
 }

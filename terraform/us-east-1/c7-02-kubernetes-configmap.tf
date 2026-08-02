@@ -4,72 +4,76 @@ output "account_id" {
   value = data.aws_caller_identity.current.account_id
 }
 
+# =============================================================================
+# AWS-AUTH CONFIGMAP
+# =============================================================================
+# This ConfigMap controls who can access the EKS cluster
+# IMPORTANT: This must be created BEFORE any other Kubernetes resources
+# to allow nodes to join and Terraform to manage the cluster
+# =============================================================================
 
-# Sample Role Format: arn:aws:iam::180789647333:role/hr-dev-eks-nodegroup-role
-# Locals Block
+# Locals Block - Define roles and users for aws-auth
 locals {
+  # Core roles needed for cluster operation
   configmap_roles = [
+    # Node role - REQUIRED for worker nodes to join the cluster
     {
-      #rolearn  = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${aws_iam_role.eks_nodegroup_role.name}"
-      rolearn  = "${aws_iam_role.eks_nodegroup_role.arn}"
+      rolearn  = aws_iam_role.eks_nodegroup_role.arn
       username = "system:node:{{EC2PrivateDNSName}}"
       groups   = ["system:bootstrappers", "system:nodes"]
     },
+    # Admin role - Full cluster access
     {
-      rolearn  = "${aws_iam_role.eks_admin_role.arn}"
-      username = "eks-admin" # Just a place holder name
+      rolearn  = aws_iam_role.eks_admin_role.arn
+      username = "eks-admin"
       groups   = ["system:masters"]
     },
+    # Read-only role
     {
-      rolearn  = "${aws_iam_role.eks_readonly_role.arn}"
-      username = "eks-readonly" # Just a place holder name
-      #groups   = [ "eks-readonly-group" ]
-      # Important Note: The group name specified in clusterrolebinding and in aws-auth configmap groups should be same. 
-      groups = ["${kubernetes_cluster_role_binding_v1.eksreadonly_clusterrolebinding.subject[0].name}"]
+      rolearn  = aws_iam_role.eks_readonly_role.arn
+      username = "eks-readonly"
+      groups   = ["eks-readonly-group"]
     },
+    # Developer role
     {
-      rolearn  = "${aws_iam_role.eks_developer_role.arn}"
-      username = "eks-developer" # Just a place holder name
-      #groups   = [ "eks-developer-group" ]
-      # Important Note: The group name specified in clusterrolebinding and in aws-auth configmap groups should be same.       
-      groups = ["${kubernetes_role_binding_v1.eksdeveloper_rolebinding.subject[0].name}"]
+      rolearn  = aws_iam_role.eks_developer_role.arn
+      username = "eks-developer"
+      groups   = ["eks-developer-group"]
     },
     # SRE Role - Operations and troubleshooting access
     {
-      rolearn  = "${aws_iam_role.eks_sre_role.arn}"
+      rolearn  = aws_iam_role.eks_sre_role.arn
       username = "eks-sre"
-      groups   = ["${kubernetes_cluster_role_binding_v1.ekssre_clusterrolebinding.subject[0].name}"]
+      groups   = ["eks-sre-group"]
     },
     # DevOps Role - CI/CD and deployment access
     {
-      rolearn  = "${aws_iam_role.eks_devops_role.arn}"
+      rolearn  = aws_iam_role.eks_devops_role.arn
       username = "eks-devops"
-      groups   = ["${kubernetes_cluster_role_binding_v1.eksdevops_clusterrolebinding.subject[0].name}"]
+      groups   = ["eks-devops-group"]
     },
   ]
+  
   configmap_users = [
     {
-      userarn  = "${aws_iam_user.basic_user.arn}"
-      username = "${aws_iam_user.basic_user.name}"
+      userarn  = aws_iam_user.basic_user.arn
+      username = aws_iam_user.basic_user.name
       groups   = ["system:masters"]
     },
     {
-      userarn  = "${aws_iam_user.admin_user.arn}"
-      username = "${aws_iam_user.admin_user.name}"
+      userarn  = aws_iam_user.admin_user.arn
+      username = aws_iam_user.admin_user.name
       groups   = ["system:masters"]
     },
   ]
 }
+
 # Resource: Kubernetes Config Map
+# NOTE: This only depends on the EKS cluster, NOT on Kubernetes RBAC resources
+# This breaks the circular dependency that was causing "Unauthorized" errors
 resource "kubernetes_config_map_v1" "aws_auth" {
-  depends_on = [
-    aws_eks_cluster.eks_cluster,
-    kubernetes_cluster_role_binding_v1.eksreadonly_clusterrolebinding,
-    kubernetes_cluster_role_binding_v1.eksdeveloper_clusterrolebinding,
-    kubernetes_role_binding_v1.eksdeveloper_rolebinding,
-    kubernetes_cluster_role_binding_v1.ekssre_clusterrolebinding,
-    kubernetes_cluster_role_binding_v1.eksdevops_clusterrolebinding
-  ]
+  depends_on = [aws_eks_cluster.eks_cluster]
+  
   metadata {
     name      = "aws-auth"
     namespace = "kube-system"
