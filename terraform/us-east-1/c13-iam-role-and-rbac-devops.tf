@@ -112,6 +112,10 @@ resource "aws_iam_group_membership" "eksdevops" {
 # Kubernetes ClusterRole for DevOps
 # -----------------------------------------------------------------------------
 resource "kubernetes_cluster_role_v1" "eksdevops_clusterrole" {
+  depends_on = [
+    aws_eks_cluster.eks_cluster,
+    aws_eks_node_group.eks_ng_private
+  ]
   metadata {
     name = "${local.name}-eksdevops-clusterrole"
     labels = {

@@ -6,6 +6,10 @@
 # Cannot: Modify deployments, view secrets, access nodes
 # =============================================================================
 resource "kubernetes_cluster_role_v1" "eksdeveloper_clusterrole" {
+  depends_on = [
+    aws_eks_cluster.eks_cluster,
+    aws_eks_node_group.eks_ng_private
+  ]
   metadata {
     name = "${local.name}-eksdeveloper-clusterrole"
     labels = {
