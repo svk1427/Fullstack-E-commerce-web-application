@@ -25,29 +25,31 @@ resource "aws_iam_role" "eks_sre_role" {
     ]
   })
 
-  inline_policy {
-    name = "eks-sre-access-policy"
-
-    policy = jsonencode({
-      Version = "2012-10-17"
-      Statement = [
-        {
-          Action = [
-            "eks:DescribeCluster",
-            "eks:ListClusters",
-            "eks:DescribeNodegroup",
-            "eks:ListNodegroups",
-            "eks:DescribeUpdate",
-            "eks:AccessKubernetesApi"
-          ]
-          Effect   = "Allow"
-          Resource = "*"
-        },
-      ]
-    })
-  }
-
   tags = local.common_tags
+}
+
+# Resource: AWS IAM Role Policy - SRE Access
+resource "aws_iam_role_policy" "eks_sre_access_policy" {
+  name = "eks-sre-access-policy"
+  role = aws_iam_role.eks_sre_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = [
+          "eks:DescribeCluster",
+          "eks:ListClusters",
+          "eks:DescribeNodegroup",
+          "eks:ListNodegroups",
+          "eks:DescribeUpdate",
+          "eks:AccessKubernetesApi"
+        ]
+        Effect   = "Allow"
+        Resource = "*"
+      },
+    ]
+  })
 }
 
 # -----------------------------------------------------------------------------

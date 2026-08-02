@@ -25,42 +25,44 @@ resource "aws_iam_role" "eks_devops_role" {
     ]
   })
 
-  inline_policy {
-    name = "eks-devops-access-policy"
-
-    policy = jsonencode({
-      Version = "2012-10-17"
-      Statement = [
-        {
-          Action = [
-            "eks:DescribeCluster",
-            "eks:ListClusters",
-            "eks:DescribeNodegroup",
-            "eks:ListNodegroups",
-            "eks:AccessKubernetesApi"
-          ]
-          Effect   = "Allow"
-          Resource = "*"
-        },
-        {
-          Action = [
-            "ecr:GetAuthorizationToken",
-            "ecr:BatchCheckLayerAvailability",
-            "ecr:GetDownloadUrlForLayer",
-            "ecr:BatchGetImage",
-            "ecr:PutImage",
-            "ecr:InitiateLayerUpload",
-            "ecr:UploadLayerPart",
-            "ecr:CompleteLayerUpload"
-          ]
-          Effect   = "Allow"
-          Resource = "*"
-        },
-      ]
-    })
-  }
-
   tags = local.common_tags
+}
+
+# Resource: AWS IAM Role Policy - DevOps Access
+resource "aws_iam_role_policy" "eks_devops_access_policy" {
+  name = "eks-devops-access-policy"
+  role = aws_iam_role.eks_devops_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = [
+          "eks:DescribeCluster",
+          "eks:ListClusters",
+          "eks:DescribeNodegroup",
+          "eks:ListNodegroups",
+          "eks:AccessKubernetesApi"
+        ]
+        Effect   = "Allow"
+        Resource = "*"
+      },
+      {
+        Action = [
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:PutImage",
+          "ecr:InitiateLayerUpload",
+          "ecr:UploadLayerPart",
+          "ecr:CompleteLayerUpload"
+        ]
+        Effect   = "Allow"
+        Resource = "*"
+      },
+    ]
+  })
 }
 
 # -----------------------------------------------------------------------------
