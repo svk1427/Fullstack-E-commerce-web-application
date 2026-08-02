@@ -1,19 +1,20 @@
 # =============================================================================
 # HELM PROVIDER CONFIGURATION
 # =============================================================================
-# Uses token-based authentication with EKS cluster auth data source
+# Uses exec-based authentication for reliable cluster access
+# This method works better during initial cluster creation and CI/CD pipelines
 # =============================================================================
 
-# Datasource: EKS Cluster Auth
-data "aws_eks_cluster_auth" "cluster" {
-  name = aws_eks_cluster.eks_cluster.id
-}
-
-# HELM Provider
+# HELM Provider with exec-based authentication
 provider "helm" {
   kubernetes {
     host                   = aws_eks_cluster.eks_cluster.endpoint
     cluster_ca_certificate = base64decode(aws_eks_cluster.eks_cluster.certificate_authority[0].data)
-    token                  = data.aws_eks_cluster_auth.cluster.token
+
+    exec {
+      api_version = "client.authentication.k8s.io/v1beta1"
+      command     = "aws"
+      args        = ["eks", "get-token", "--cluster-name", aws_eks_cluster.eks_cluster.name, "--region", var.aws_region]
+    }
   }
 }
